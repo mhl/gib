@@ -259,6 +259,9 @@ Please run '{} commit' to save a first state in your history'''
     print(suggestion.format(os.path.join(directory_to_backup,'.gitignore'),
                             script_name))
 
+def current_date_and_time_string():
+    return datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
+
 def modified_or_untracked():
     p = Popen(["git","ls-files","-z","--modified","--others","--exclude-standard"],stdout=PIPE)
     c = p.communicate()
@@ -293,7 +296,7 @@ def commit():
     command = [ "git",
                 "commit",
                 "-m",
-                "Committed on "+datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z") ]
+                "Committed on "+current_date_and_time_string() ]
     check_call(command)
 
     print("Optimizing and compacting repository (might take a while).",file=sys.stderr)
