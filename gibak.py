@@ -161,6 +161,8 @@ def abort_if_not_initialized():
         sys.exit(6)
     if not require_work_tree():
         print("There was no valid git working tree in "+directory_to_backup,file=sys.stderr)
+        if config_value("core.bare") == "true":
+            print("core.bare was set to true, which may explain this.")
         sys.exit(7)
 
 # def find_git_repositories(start_path=directory_to_backup):
