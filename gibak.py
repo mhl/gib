@@ -125,7 +125,6 @@ os.chdir(directory_to_backup)
 
 old_umask = os.umask(0o077)
 
-# print("Set umask to 0o077; the old umask was: 0o{:03o}".format(old_umask))
 
 def exists_and_is_directory(path):
     if not os.path.exists(path):
