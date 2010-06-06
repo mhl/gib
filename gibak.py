@@ -1,6 +1,28 @@
 #!/usr/bin/python3.1
 
-# Yet another version of gibak, by Mark Longair
+# Copyright (c) 2007 Jean-Francois Richard <jean-francois@richard.name>
+#           (c) 2008 Mauricio Fernandez <mfp@acm.org>
+#           (c) 2009, 2010 Mark Longair <mark-gibak.py@longair.net>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see
+# <http://www.gnu.org/licenses/>.
+
+# ------------------------------------------------------------------------
+
+# The script reimplements some of the "gibak" script in Python 3.1,
+# and changes its behaviour in a couple of key respects.  For more
+# information, please see [FIXME: write a blog post about this...]
 
 from subprocess import call, check_call, Popen, PIPE
 import errno
