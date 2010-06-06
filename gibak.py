@@ -111,7 +111,8 @@ usage_message = '''Usage: %prog [OPTIONS] COMMAND
 COMMAND must be one of:
 
     init
-    commit'''
+    commit
+    eat [FILES OR DIRECTORIES...]'''
 
 parser = OptionParser(usage=usage_message)
 parser.add_option('--directory',
@@ -302,9 +303,30 @@ def commit():
     print("Optimizing and compacting repository (might take a while).",file=sys.stderr)
     check_call(["git","gc","--auto"])
 
-if len(args) != 1:
+def eat(files_to_eat):
+    if 0 != call(["git","diff","--quiet","--cached"]):
+        print("It looks as if you have some changes staged, and the")
+        print("gibak.py \"eat\" command requires you to have nothing staged.")
+        print("(To see what's staged, try: \"git diff --cached --stat\")")
+        sys.exit(18)
+    check_call(["git","add","-v","--"]+files_to_eat)
+    # It's possible that the files we want to eat were already in the
+    # last commit and exactly the same.  So, check whether adding them
+    # to the index created any difference between the index and HEAD
+    # in those files.  Only if it did, create a new commit:
+    if 0 != call(["git","diff","--quiet","--cached","--"]+files_to_eat):
+        commit_message = "Eating specified files on "+current_date_and_time_string()
+        check_call(["git","commit","-m",commit_message])
+    check_call(["git","rm","-rf","--"]+files_to_eat)
+    # The "git rm -rf" may leave empty directories, since git only
+    # tracks files, so use "rm -rf" as well:
+    check_call(["rm","-rfv","--"]+files_to_eat)
+    commit_message = "Now removing eaten files on "+current_date_and_time_string()
+    check_call(["git","commit","-m",commit_message])
+
+if len(args) < 1:
     parser.print_help()
-    print("Expected exactly one command",file=sys.stderr)
+    print("No command found",file=sys.stderr)
     sys.exit(9)
 
 command = args[0]
@@ -318,5 +340,15 @@ elif command == "commit":
     commit()
     print("After committing the new backup, git status is:",file=sys.stderr)
     print(Popen(["git","status"],stdout=PIPE).communicate()[0].decode())
+elif command == "eat":
+    abort_if_not_initialized()
+    abort_unless_never_prune()
+    if len(args) > 1:
+        if not was_in_correct_directory:
+            print("Warning: paths should be relative to "+directory_to_backup,file=sys.stderr)
+        eat(args[1:])
+    else:
+        print("You must supply at least one file or directory to the \"eat\" command")
+        sys.exit(13)
 else:
     print("Unknown command '{}'".format(command))
