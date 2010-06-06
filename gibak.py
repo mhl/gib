@@ -165,13 +165,6 @@ def abort_if_not_initialized():
             print("core.bare was set to true, which may explain this.")
         sys.exit(7)
 
-# def find_git_repositories(start_path=directory_to_backup):
-#     repository_directories = set([])
-#     for root, dirs, files in os.walk(start_path):
-#         if has_objects_refs(root):
-#             repository_directories.add(os.path.realpath(root))
-#     return repository_directories
-
 def find_git_repositories(start_path=directory_to_backup):
     p = Popen(["find-git-repos","-i","-z"],stdout=PIPE)
     c = p.communicate()
