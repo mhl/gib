@@ -112,7 +112,9 @@ COMMAND must be one of:
 
     init
     commit
-    eat [FILES OR DIRECTORIES...]'''
+    eat [FILES OR DIRECTORIES...]
+    show [FILE]
+    show [FILE] [WHEN]'''
 
 parser = OptionParser(usage=usage_message)
 parser.add_option('--directory',
@@ -324,6 +326,12 @@ def eat(files_to_eat):
     commit_message = "Now removing eaten files on "+current_date_and_time_string()
     check_call(["git","commit","-m",commit_message])
 
+def show(filename,when):
+    if when:
+        check_call(["git","show","master@{"+when+"}:"+filename])
+    else:
+        check_call(["git","show","master:"+filename])
+
 if len(args) < 1:
     parser.print_help()
     print("No command found",file=sys.stderr)
@@ -349,5 +357,20 @@ elif command == "eat":
     else:
         print("You must supply at least one file or directory to the \"eat\" command")
         sys.exit(13)
+elif command == "show":
+    abort_if_not_initialized()
+    abort_unless_never_prune
+    if len(args) == 1:
+        print("You must supply a filename to the \"show\" command")
+        sys.exit(14)
+    elif len(args) > 3:
+        print("Too many arguments provided for the \"show\" command")
+        sys.exit(15)
+    else:
+        rewritten_path = map_filename_for_directory_change(args[1])
+        when = None
+        if len(args) == 3:
+            when = args[2]
+        show(rewritten_path,when)
 else:
     print("Unknown command '{}'".format(command))
