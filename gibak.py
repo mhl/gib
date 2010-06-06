@@ -313,6 +313,7 @@ if command == "init":
     init()
     abort_unless_never_prune()
 elif command == "commit":
+    abort_if_not_initialized()
     abort_unless_never_prune()
     commit()
     print("After committing the new backup, git status is:",file=sys.stderr)
