@@ -120,11 +120,19 @@ parser.add_option('--directory',
                   help="directory to backup [default %default]")
 options,args = parser.parse_args()
 
+original_current_directory = os.getcwd()
+
 directory_to_backup = options.directory
 os.chdir(directory_to_backup)
 
-old_umask = os.umask(0o077)
+def map_filename_for_directory_change(f):
+    if os.path.isabs(f):
+        return f
+    else:
+        return os.path.relpath(os.path.join(original_current_directory,f),
+                               directory_to_backup)
 
+old_umask = os.umask(0o077)
 
 def exists_and_is_directory(path):
     if not os.path.exists(path):
