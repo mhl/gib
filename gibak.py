@@ -344,9 +344,8 @@ elif command == "eat":
     abort_if_not_initialized()
     abort_unless_never_prune()
     if len(args) > 1:
-        if not was_in_correct_directory:
-            print("Warning: paths should be relative to "+directory_to_backup,file=sys.stderr)
-        eat(args[1:])
+        rewritten_paths = [ map_filename_for_directory_change(x) for x in args[1:] ]
+        eat(rewritten_paths)
     else:
         print("You must supply at least one file or directory to the \"eat\" command")
         sys.exit(13)
