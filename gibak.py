@@ -58,19 +58,27 @@ def abort_on_no(name):
     output = c[0].decode()
     return output
 
-def abort_unless_never_prune():
-    required_setting = "never"
-    p = Popen(["git","config","gc.pruneExpire"],stdout=PIPE)
+def config_value(key):
+    p = Popen(["git","config",key],stdout=PIPE)
     c = p.communicate()
     if 0 == p.returncode:
         # Then check that the option is right:
-        current_value = c[0].decode().strip()
-        if current_value != required_setting:
-            print("The current value for gc.pruneExpire is "+current_value+", should be: "+required_setting,file=sys.stderr)
+        return c[0].decode().strip()
+    else:
+        return None
+
+def abort_unless_particular_config(key,required_value):
+    current_value = config_value(key)
+    if current_value:
+        if current_value != required_value:
+            print("The current value for {} is {}, should be: {}".format(key,current_value,required_value),file=sys.stderr)
             sys.exit(12)
     else:
-        print("The gc.pruneExpire config option was not set, setting to "+required_setting,file=sys.stderr)
-        check_call(["git","config","gc.pruneExpire",required_setting])
+        print("The {} config option was not set, setting to {}".format(key,required_value),file=sys.stderr)
+        check_call(["git","config",key,required_value])
+
+def abort_unless_never_prune():
+    abort_unless_particular_config("gc.pruneExpire","never")
 
 # Check that git is on your PATH and find the version:
 
