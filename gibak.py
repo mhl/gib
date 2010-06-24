@@ -291,10 +291,7 @@ def commit():
 
     print("Adding new and modified files.",file=sys.stderr)
 
-    command = [ "git", "add", "-v", "--ignore-errors" ]
-    command.append(".")
-
-    if 0 != call(command):
+    if 0 != call( [ "git", "add", "-v", "--ignore-errors", "." ] ):
         print("Could not complete addition of files to history store!",file=sys.stderr)
         sys.exit(11)
 
