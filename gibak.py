@@ -42,6 +42,10 @@ script_name = sys.argv[0]
 
 hostname = Popen(["hostname"],stdout=PIPE).communicate()[0].decode().strip()
 
+# From http://stackoverflow.com/questions/35817/whats-the-best-way-to-escape-os-system-calls-in-python
+def shellquote(s):
+    return "'" + s.replace("'", "'\\''") + "'"
+
 def abort_on_no(name):
     try:
         p = Popen([name, "--version"], stdout=PIPE)
@@ -227,13 +231,17 @@ def init():
 
     fp = open(pre_commit_hook_path,"w")
     fp.write('''#!/bin/sh
+set -e
+cd {}
 ometastore -x -s -i --sort
-git add -f .ometastore''')
+git add -f .ometastore'''.format(shellquote(directory_to_backup)))
     fp.close()
 
     fp = open(post_checkout_hook_path,"w")
     fp.write('''#!/bin/sh
-ometastore -v -x -a -i''')
+set -e
+cd {}
+ometastore -v -x -a -i'''.format(shellquote(directory_to_backup)))
 
     for h in ( pre_commit_hook_path, post_checkout_hook_path ):
         check_call(["chmod","u+x",h])
