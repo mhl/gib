@@ -31,6 +31,7 @@ import re
 import os
 import stat
 import datetime
+import pwd
 from optparse import OptionParser
 
 required_git_version = [ 1, 7, 0, 3 ]
