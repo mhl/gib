@@ -213,8 +213,8 @@ def handle_git_repositories(start_path=directory_to_backup):
 def init():
     abort_if_initialized()
 
-    check_call("git","init","--shared=umask")
-    check_call("chmod","-R","u+rwX,go-rwx",".git")
+    check_call(["git","init","--shared=umask"])
+    check_call(["chmod","-R","u+rwX,go-rwx",".git"])
 
     fp = open(os.path.join(".git","description"),"w")
     fp.write("Backup of {} on {}".format(directory_to_backup,hostname))
