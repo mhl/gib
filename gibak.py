@@ -290,7 +290,7 @@ def commit():
         sys.exit(11)
 
     print("Removing deleted files from the repository",file=sys.stderr)
-    check_call("git ls-files --deleted -z | xargs -0 -r git rm --ignore-unmatch",shell=True)
+    check_call("git ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch",shell=True)
 
     print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
     handle_git_repositories()
