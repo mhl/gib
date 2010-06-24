@@ -135,7 +135,7 @@ os.chdir(directory_to_backup)
 
 def map_filename_for_directory_change(f):
     if os.path.isabs(f):
-        return f
+        return os.path.relpath(f, directory_to_backup)
     else:
         return os.path.relpath(os.path.join(original_current_directory,f),
                                directory_to_backup)
