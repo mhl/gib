@@ -287,7 +287,7 @@ def commit():
 
     if [ x for x in modified_or_untracked() if re.search('(^|/).gitignore$',x) ]:
         print("Some .gitignore added or modified, determining newly ignored files.",file=sys.stderr)
-        check_call("ometastore -d -i -z | xargs -0 git rm --cached -r -f --ignore-unmatch -- 2>/dev/null",shell=True)
+        check_call("ometastore -d -i -z | xargs -0 -r git rm --cached -r -f --ignore-unmatch -- 2>/dev/null",shell=True)
 
     print("Adding new and modified files.",file=sys.stderr)
 
