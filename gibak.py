@@ -292,8 +292,7 @@ def commit():
     print("Adding new and modified files.",file=sys.stderr)
 
     if 0 != call( [ "git", "add", "-v", "--ignore-errors", "." ] ):
-        print("Could not complete addition of files to history store!",file=sys.stderr)
-        sys.exit(11)
+        print("Warning: adding some files failed; check the output from git status below",file=sys.stderr)
 
     print("Removing deleted files from the repository",file=sys.stderr)
     check_call("git ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch",shell=True)
