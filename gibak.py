@@ -198,8 +198,8 @@ def handle_git_repositories(start_path=directory_to_backup):
         relative_repository = re.sub('^/*','',r_dot_git)
         destination_repository = os.path.join(base_directory,relative_repository)
         call(["mkdir","-p","-v",os.path.split(destination_repository)[0]])
-        print("rsyncing: "+r+" => "+destination_repository)
-        check_call(["rsync","-rltD","--relative","--delete-after","--delay-updates",r_dot_git,destination_repository])
+        print("rsyncing: {} ({}) => {}".format(r,r_dot_git,destination_repository))
+        check_call(["rsync","-rltD","--delete-after","--delay-updates",r_dot_git,destination_repository])
         fp = open(".gitmodules","a")
         fp.write('''[submodule "%s"]
     path = %s
