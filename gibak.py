@@ -181,7 +181,7 @@ def abort_if_not_initialized():
         sys.exit(7)
 
 def find_git_repositories(start_path=directory_to_backup):
-    p = Popen(["find-git-repos","-i","-z"],stdout=PIPE)
+    p = Popen(["find-git-repos","-i","-z","--path",start_path],stdout=PIPE)
     c = p.communicate()
     return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
 
