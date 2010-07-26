@@ -64,7 +64,7 @@ def abort_on_no(name):
     return output
 
 def config_value(key):
-    p = Popen(["git","config",key],stdout=PIPE)
+    p = Popen(git(["config",key]),stdout=PIPE)
     c = p.communicate()
     if 0 == p.returncode:
         # Then check that the option is right:
@@ -80,7 +80,7 @@ def abort_unless_particular_config(key,required_value):
             sys.exit(12)
     else:
         print("The {} config option was not set, setting to {}".format(key,required_value),file=sys.stderr)
-        check_call(["git","config",key,required_value])
+        check_call(git(["config",key,required_value]))
 
 def abort_unless_never_prune():
     abort_unless_particular_config("gc.pruneExpire","never")
@@ -126,12 +126,33 @@ parser.add_option('--directory',
                   dest="directory",
                   default=os.environ['HOME'],
                   help="directory to backup [default %default]")
+parser.add_option('--git-dir',
+                  dest="git_directory",
+                  default=None,
+                  help="git directory for backup (for advanced use)")
 options,args = parser.parse_args()
+
+unusual_git_directory = False
+if options.git_directory:
+    unusual_git_directory = True
+else:
+    options.git_directory = os.path.join(directory_to_backup,".git")
 
 original_current_directory = os.getcwd()
 
 directory_to_backup = options.directory
 os.chdir(directory_to_backup)
+
+def git(rest_of_command):
+    return [ "git", "--git-dir="+options.git_directory, "--work-tree="+directory_to_backup ] + rest_of_command
+
+def get_invocation():
+    invocation = script_name
+    if options.directory != os.environ['HOME']:
+        invocation += " "+"--directory="+shellquote(options.directory)
+    if unusual_git_directory:
+        invocation += " "+"--git-dir="+shellquote(options.git_directory)
+    return invocation
 
 def map_filename_for_directory_change(f):
     if os.path.isabs(f):
@@ -157,28 +178,20 @@ def has_objects_refs(path):
     return exists_and_is_directory(objects_path) and exists_and_is_directory(refs_path)
 
 def git_initialized():
-    path = os.path.join(directory_to_backup,".git")
+    path = os.path.join(options.git_directory)
     return has_objects_refs(path)
 
 def abort_if_initialized():
     if git_initialized():
-        print("You already have git data in "+directory_to_backup,file=sys.stderr)
-        print("Please use '{} rm-all' if you wish to *delete* it.".format(script_name),file=sys.stderr)
+        print("You already have git data in "+options.git_directory,file=sys.stderr)
+        print("Please use '{} rm-all' if you wish to *delete* it.".format(get_invocation()),file=sys.stderr)
         sys.exit(5)
-
-def require_work_tree():
-    return 0 == call(['sh','-c','. $(git --exec-path)/git-sh-setup && require_work_tree'])
 
 def abort_if_not_initialized():
     if not git_initialized():
         print("You probably did not initialize your home history repository",file=sys.stderr)
-        print("Please use '{} init' to initialize it".format(script_name),file=sys.stderr)
+        print("Please use '{} init' to initialize it".format(get_invocation()),file=sys.stderr)
         sys.exit(6)
-    if not require_work_tree():
-        print("There was no valid git working tree in "+directory_to_backup,file=sys.stderr)
-        if config_value("core.bare") == "true":
-            print("core.bare was set to true, which may explain this.")
-        sys.exit(7)
 
 def find_git_repositories(start_path=directory_to_backup):
     p = Popen(["find-git-repos","-i","-z","--path",start_path],stdout=PIPE)
@@ -191,7 +204,7 @@ def ensure_trailing_slash(path):
 def handle_git_repositories(start_path=directory_to_backup):
     abort_if_not_initialized()
     check_call(["rm","-f",".gitmodules"])
-    base_directory = os.path.join(start_path,os.path.join(".git","git-repositories"))
+    base_directory = os.path.join(os.path.join(options.git_directory,"git-repositories"))
     check_call(["mkdir","-p",base_directory])
     for r in find_git_repositories(start_path):
         r_dot_git = ensure_trailing_slash(os.path.join(r,".git"))
@@ -207,24 +220,24 @@ def handle_git_repositories(start_path=directory_to_backup):
 ''' % (r,r,destination_repository))
         fp.close()
     check_call(["touch",".gitmodules"])
-    check_call(["git","add","-f",".gitmodules"])
-    check_call(["git","submodule","init"])
+    check_call(git(["add","-f",".gitmodules"]))
+    check_call(git(["submodule","init"]))
 
 def init():
     abort_if_initialized()
 
-    check_call(["git","init","--shared=umask"])
-    check_call(["chmod","-R","u+rwX,go-rwx",".git"])
+    check_call(git(["init","--shared=umask"]))
+    check_call(["chmod","-R","u+rwX,go-rwx",options.git_directory])
 
-    fp = open(os.path.join(".git","description"),"w")
+    fp = open(os.path.join(options.git_directory,"description"),"w")
     fp.write("Backup of {} on {}".format(directory_to_backup,hostname))
     fp.close()
 
     default_user_name = re.sub(',.*$','',pwd.getpwuid(os.getuid())[4])
-    if 0 != call(["git","config","user.name"]):
-        call(["git","config","user.name",default_user_name])
+    if 0 != call(git(["config","user.name"])):
+        call(git(["config","user.name",default_user_name]))
 
-    hooks_directory = os.path.join(".git","hooks")
+    hooks_directory = os.path.join(options.git_directory,"hooks")
 
     pre_commit_hook_path = os.path.join(hooks_directory,"pre-commit")
     post_checkout_hook_path = os.path.join(hooks_directory,"post-checkout")
@@ -234,7 +247,8 @@ def init():
 set -e
 cd {}
 ometastore -x -s -i --sort
-git add -f .ometastore'''.format(shellquote(directory_to_backup)))
+git --git-dir={} add -f .ometastore'''.format(shellquote(directory_to_backup),
+                                              shellquote(options.git_directory)))
     fp.close()
 
     fp = open(post_checkout_hook_path,"w")
@@ -259,23 +273,23 @@ ometastore -v -x -a -i'''.format(shellquote(directory_to_backup)))
 # http://www.kernel.org/pub/software/scm/git/docs/gitignore.html
 ''')
 
-    check_call(["git","add","-f",".gitignore"])
-    check_call(["git","commit","-q","-a","-mInitialized by "+script_name])
+    check_call(git(["add","-f",".gitignore"]))
+    check_call(git(["commit","-q","-a","-mInitialized by "+get_invocation()]))
 
     suggestion = '''You might be interested in tweaking the file:
 
   {}
 
-Please run '{} commit' to save a first state in your history'''
+Please run "{} commit" to save a first state in your history'''
 
     print(suggestion.format(os.path.join(directory_to_backup,'.gitignore'),
-                            script_name))
+                            get_invocation()))
 
 def current_date_and_time_string():
     return datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
 
 def modified_or_untracked():
-    p = Popen(["git","ls-files","-z","--modified","--others","--exclude-standard"],stdout=PIPE)
+    p = Popen(git(["ls-files","-z","--modified","--others","--exclude-standard"]),stdout=PIPE)
     c = p.communicate()
     if p.returncode != 0:
         print("Finding the modified files failed",file=sys.stderr)
@@ -287,55 +301,55 @@ def commit():
 
     if [ x for x in modified_or_untracked() if re.search('(^|/).gitignore$',x) ]:
         print("Some .gitignore added or modified, determining newly ignored files.",file=sys.stderr)
-        check_call("ometastore -d -i -z | xargs -0 -r git rm --cached -r -f --ignore-unmatch -- 2>/dev/null",shell=True)
+        check_call("ometastore -d -i -z | xargs -0 -r git --git-dir={} rm --cached -r -f --ignore-unmatch -- 2>/dev/null".format(shellquote(options.git_directory)),shell=True)
 
     print("Adding new and modified files.",file=sys.stderr)
 
-    if 0 != call( [ "git", "add", "-v", "--ignore-errors", "." ] ):
+    if 0 != call( git( [ "add", "-v", "--ignore-errors", "." ] ) ):
         print("Warning: adding some files failed; check the output from git status below",file=sys.stderr)
 
     print("Removing deleted files from the repository",file=sys.stderr)
-    check_call("git ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch",shell=True)
+    check_call("git --git-dir={} ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch".format(shellquote(options.git_directory)),shell=True)
 
     print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
     handle_git_repositories()
 
     print("Committing the new state of "+directory_to_backup,file=sys.stderr)
-    command = [ "git",
-                "commit",
-                "-m",
-                "Committed on "+current_date_and_time_string() ]
+    command = git( [ "commit",
+                     "-m",
+                     "Committed on "+current_date_and_time_string() ] )
     check_call(command)
 
     print("Optimizing and compacting repository (might take a while).",file=sys.stderr)
-    check_call(["git","gc","--auto"])
+    check_call(git(["gc","--auto"]))
 
 def eat(files_to_eat):
-    if 0 != call(["git","diff","--quiet","--cached"]):
+    if 0 != call(git(["diff","--quiet","--cached"])):
         print("It looks as if you have some changes staged, and the")
-        print("gibak.py \"eat\" command requires you to have nothing staged.")
-        print("(To see what's staged, try: \"git diff --cached --stat\")")
+        print("{} \"eat\" command requires you to have nothing staged.".format(get_invocation()))
+        print("(To see what's staged, try: \"git --git-dir={} --work-tree={} diff --cached --stat\")".format(shellquote(options.git_directory),
+                                                                                                             shellquote(directory_to_backup)))
         sys.exit(18)
-    check_call(["git","add","-v","--"]+files_to_eat)
+    check_call(git(["add","-v","--"]+files_to_eat))
     # It's possible that the files we want to eat were already in the
     # last commit and exactly the same.  So, check whether adding them
     # to the index created any difference between the index and HEAD
     # in those files.  Only if it did, create a new commit:
-    if 0 != call(["git","diff","--quiet","--cached","--"]+files_to_eat):
+    if 0 != call(git(["diff","--quiet","--cached","--"]+files_to_eat)):
         commit_message = "Eating specified files on "+current_date_and_time_string()
-        check_call(["git","commit","-m",commit_message])
-    check_call(["git","rm","-rf","--"]+files_to_eat)
+        check_call(git(["commit","-m",commit_message]))
+    check_call(git(["rm","-rf","--"]+files_to_eat))
     # The "git rm -rf" may leave empty directories, since git only
     # tracks files, so use "rm -rf" as well:
     check_call(["rm","-rfv","--"]+files_to_eat)
     commit_message = "Now removing eaten files on "+current_date_and_time_string()
-    check_call(["git","commit","-m",commit_message])
+    check_call(git(["commit","-m",commit_message]))
 
 def show(filename,when):
     if when:
-        check_call(["git","show","master@{"+when+"}:"+filename])
+        check_call(git(["show","master@{"+when+"}:"+filename]))
     else:
-        check_call(["git","show","master:"+filename])
+        check_call(git(["show","master:"+filename]))
 
 if len(args) < 1:
     parser.print_help()
@@ -352,7 +366,7 @@ elif command == "commit":
     abort_unless_never_prune()
     commit()
     print("After committing the new backup, git status is:",file=sys.stderr)
-    print(Popen(["git","status"],stdout=PIPE).communicate()[0].decode())
+    print(Popen(git(["status"]),stdout=PIPE).communicate()[0].decode())
 elif command == "eat":
     abort_if_not_initialized()
     abort_unless_never_prune()
