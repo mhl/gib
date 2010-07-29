@@ -32,9 +32,6 @@ if not (ref1_ok and ref2_ok):
 dir1 = mkdtemp()
 dir2 = mkdtemp()
 
-print("Created: "+dir1)
-print("Created: "+dir2)
-
 # From http://stackoverflow.com/questions/35817/whats-the-best-way-to-escape-os-system-calls-in-python
 def shellquote(s):
     return "'" + s.replace("'", "'\\''") + "'"
