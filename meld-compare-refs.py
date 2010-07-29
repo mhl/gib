@@ -48,51 +48,45 @@ def command_to_lines(command,nul=False):
     else:
         return str_output.splitlines(False)
 
-# Cache all already explored trees:
-trees_dictionary = {}
-
-def tree_to_recursive_list(tree):
-    if tree in trees_dictionary:
-        return trees_dictionary[tree]
-    files = []
+def apply_to_blobs_in_tree(tree,f,path_prefix=""):
     for line in command_to_lines(["git","ls-tree","-z",tree],nul=True):
         m = re.search('(\S+)\s+(\S+)\s+(\S+)\s+(.*)',line)
         if m:
             mode, object_type, object_name, entry_name = m.groups()
             mode_int = int(mode,8)
             if object_type == "tree":
-                files_in_tree = tree_to_recursive_list(object_name)
-                for t in files_in_tree:
-                    files.append((t[0],os.path.join(entry_name,t[1]),t[2]))
+                apply_to_blobs_in_tree( object_name, f, os.path.join(path_prefix,entry_name) )
             elif object_type == "blob":
-                files.append((object_name,entry_name,mode_int))
-    trees_dictionary.setdefault(tree,files)
-    return files
+                f( object_name, entry_name, mode_int, path_prefix )
 
-def extract_blob_to(object_name,entry_name,git_file_mode,output_directory):
-    destination = os.path.join(output_directory,os.path.dirname(entry_name))
-    try:
-        os.makedirs(destination)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    destination_filename = os.path.join(destination,
-                                        os.path.basename(entry_name))
-    if git_file_mode == 0o120000:
-        # Then this is a symlink:
-        p = Popen(["git","show",object_name],stdout=PIPE)
-        symlink_destination = p.communicate()[0]
-        check_call(["ln","-s",symlink_destination,destination_filename])
-    else:
-        check_call("git show {} > {}".format(
-                object_name,
-                shellquote(destination_filename)),shell=True)
-        permissions = (git_file_mode % 0o1000) & ~ original_umask
-        check_call(["chmod","{:o}".format(permissions),destination_filename])
+def print_blob( object_name, entry_name, mode_int, path_prefix ):
+    print("{} {:o} {}".format(object_name,mode_int,os.path.join(path_prefix,entry_name)))
+
+def create_extraction_closure(output_directory):
+    def extract_blob_to(object_name,entry_name,git_file_mode,path_prefix):
+        destination = os.path.join(output_directory,path_prefix,os.path.dirname(entry_name))
+        try:
+            os.makedirs(destination)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        destination_filename = os.path.join(destination,
+                                            os.path.basename(entry_name))
+        if git_file_mode == 0o120000:
+            # Then this is a symlink:
+            p = Popen(["git","show",object_name],stdout=PIPE)
+            symlink_destination = p.communicate()[0]
+            check_call(["ln","-s",symlink_destination,destination_filename])
+        else:
+            check_call("git show {} > {}".format(
+                    object_name,
+                    shellquote(destination_filename)),shell=True)
+            permissions = (git_file_mode % 0o1000) & ~ original_umask
+            check_call(["chmod","{:o}".format(permissions),destination_filename])
+    return extract_blob_to
 
 def extract_tree_to(tree,output_directory):
-    for t in tree_to_recursive_list(tree):        
-        extract_blob_to(t[0],t[1],t[2],output_directory)
+    apply_to_blobs_in_tree( tree, create_extraction_closure(output_directory) )
 
 try:
     extract_tree_to(ref1,dir1)
