@@ -19,7 +19,8 @@ if len(sys.argv) != 3:
 ref1, ref2 = sys.argv[1:]
 
 def check_ref(ref):
-    return 0 == call(["git","rev-parse",ref])
+    print("Checking "+ref+":")
+    return 0 == call(["git","rev-parse","--verify",ref])
 
 ref1_ok = check_ref(ref1)
 ref2_ok = check_ref(ref2)
