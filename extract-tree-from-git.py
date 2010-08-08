@@ -11,7 +11,7 @@ original_umask = os.umask(0)
 os.umask(original_umask)
 
 if len(sys.argv) != 3:
-    print("Usage: {} <tree-ish> <output-directory>",file=sys.stderr)
+    print("Usage: {} <tree-ish> <output-directory>".format(sys.argv[0]),file=sys.stderr)
     sys.exit(1)
 
 treeish, output_directory = sys.argv[1:]
