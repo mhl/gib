@@ -261,7 +261,8 @@ else:
     directory_to_backup = os.environ['HOME']
     directory_to_backup_from = OptionFrom.DEFAULT_VALUE
 
-# We need to make sure that this is a
+# We need to make sure that this is an absolute path before
+# changing directory:
 directory_to_backup = os.path.abspath(directory_to_backup)
 
 # So change into that directory (which will also check that the
