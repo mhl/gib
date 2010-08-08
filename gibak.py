@@ -587,10 +587,9 @@ def commit():
 
 def eat(files_to_eat):
     if 0 != call(git(["diff","--quiet","--cached"])):
-        print("It looks as if you have some changes staged, and the")
-        print("{} \"eat\" command requires you to have nothing staged.".format(get_invocation()))
-        print("(To see what's staged, try: \"git --git-dir={} --work-tree={} diff --cached --stat\")".format(shellquote(git_directory),
-                                                                                                             shellquote(directory_to_backup)))
+        print("It looks as if you have some changes staged, and the \"eat\"")
+        print("command requires you to have nothing staged.")
+        print("(To see what's staged, try: \"{} diff --cached --stat\")".format(git_for_shell()))
         sys.exit(Errors.EATING_WITH_STAGED_CHANGES)
     check_call(git(["add","-v","--"]+files_to_eat))
     # It's possible that the files we want to eat were already in the
