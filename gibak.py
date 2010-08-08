@@ -71,8 +71,6 @@
 # - use a lockfile to prevent multiple concurrent instances, in
 #   particular because each invocation may update HEAD
 #
-# - remove the gc.pruneExpire checking
-#
 # - implement extract, using git-archive and tar - remember to
 #   apply ometastore
 #
@@ -95,8 +93,7 @@ from optparse import OptionParser
 from configparser import RawConfigParser
 
 required_git_version = [ 1, 7, 0, 3 ]
-required_git_version_reason = """(This script requires a version that honours the config
-option gc.pruneExpire being set to 'never'.)"""
+required_git_version_reason = """(Earlier versions may work now, in fact.)"""
 
 configuration_file = '.gib.conf'
 
@@ -192,10 +189,6 @@ def abort_unless_particular_config(key,required_value):
     else:
         print("The {} config option was not set, setting to {}".format(key,required_value),file=sys.stderr)
         set_config_value(key,required_value)
-
-def abort_unless_never_prune():
-    '''Exit unless git config has gc.pruneExpire set to "never"'''
-    abort_unless_particular_config("gc.pruneExpire","never")
 
 def abort_unless_no_auto_gc():
     '''Exit unless git config has gc.auto set to "0"'''
