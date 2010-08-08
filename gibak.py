@@ -516,9 +516,9 @@ abort_unless_no_auto_gc()
 
 def map_filename_for_directory_change(f):
     '''In commands when we specify files or directories, we would like
-    tab-completed relative filenames.  This method maps a filename
-    relative to the original working directory to a filename relative
-    to the directory that is being backed up.'''
+    to be able to tab-complete relative filenames.  This method maps a
+    filename relative to the original working directory to a filename
+    relative to the directory that is being backed up.'''
     if os.path.isabs(f):
         return os.path.relpath(f, directory_to_backup)
     else:
