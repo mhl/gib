@@ -72,6 +72,16 @@
 #   particular because each invocation may update HEAD
 #
 # - remove the gc.pruneExpire checking
+#
+# - implement extract, using git-archive and tar - remember to
+#   apply ometastore
+#
+# - take out the git-status and add back commands to list untracked
+#   and modified files
+#
+# - add a "find" command that looks through "git ls-tree"
+#
+# - add a checkout / reset --hard command for restore?
 
 from subprocess import call, check_call, Popen, PIPE, STDOUT
 import errno
