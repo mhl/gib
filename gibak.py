@@ -146,6 +146,12 @@ os.chdir(directory_to_backup)
 def git(rest_of_command):
     return [ "git", "--git-dir="+options.git_directory, "--work-tree="+directory_to_backup ] + rest_of_command
 
+def git_for_shell():
+    if unusual_git_directory:
+        return "git --git-dir="+shellquote(options.git_directory)
+    else:
+        return "git"
+
 def get_invocation():
     invocation = script_name
     if options.directory != os.environ['HOME']:
@@ -247,8 +253,8 @@ def init():
 set -e
 cd {}
 ometastore -x -s -i --sort
-git --git-dir={} add -f .ometastore'''.format(shellquote(directory_to_backup),
-                                              shellquote(options.git_directory)))
+{} add -f .ometastore'''.format(shellquote(directory_to_backup),
+                                git_for_shell()))
     fp.close()
 
     fp = open(post_checkout_hook_path,"w")
@@ -301,7 +307,7 @@ def commit():
 
     if [ x for x in modified_or_untracked() if re.search('(^|/).gitignore$',x) ]:
         print("Some .gitignore added or modified, determining newly ignored files.",file=sys.stderr)
-        check_call("ometastore -d -i -z | xargs -0 -r git --git-dir={} rm --cached -r -f --ignore-unmatch -- 2>/dev/null".format(shellquote(options.git_directory)),shell=True)
+        check_call("ometastore -d -i -z | xargs -0 -r {} rm --cached -r -f --ignore-unmatch -- 2>/dev/null".format(git_for_shell()),shell=True)
 
     print("Adding new and modified files.",file=sys.stderr)
 
@@ -309,7 +315,7 @@ def commit():
         print("Warning: adding some files failed; check the output from git status below",file=sys.stderr)
 
     print("Removing deleted files from the repository",file=sys.stderr)
-    check_call("git --git-dir={} ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch".format(shellquote(options.git_directory)),shell=True)
+    check_call("{} ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch".format(git_for_shell()),shell=True)
 
     print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
     handle_git_repositories()
