@@ -525,6 +525,14 @@ def map_filename_for_directory_change(f):
         return os.path.relpath(os.path.join(original_current_directory,f),
                                directory_to_backup)
 
+def map_filename_for_directory_change_absolute(f):
+    '''This method takes a (possibly relative) path specified in the
+    original working directory and makes it absolute'''
+    if os.path.isabs(f):
+        return f
+    else:
+        return os.path.join(original_current_directory,f)
+
 def find_git_repositories(start_path=directory_to_backup):
     '''Use the find-git-repos command to return a list of all directories
     which are working trees with git repositories.  (In other words, this
