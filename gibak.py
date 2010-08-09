@@ -586,7 +586,10 @@ def commit():
         print("Warning: adding some files failed; check the output from git status below",file=sys.stderr)
 
     print("Removing deleted files from the repository",file=sys.stderr)
-    check_call("{} ls-files --deleted -z | xargs -0 -r git rm --cached --ignore-unmatch".format(git_for_shell()),shell=True)
+    check_call("{} ls-files --deleted -z | xargs -0 -r {} rm --cached --ignore-unmatch".format(
+            git_for_shell(),
+            git_for_shell()),
+               shell=True)
 
     print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
     handle_git_repositories()
