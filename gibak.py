@@ -233,7 +233,7 @@ parser = OptionParser(usage=usage_message)
 parser.add_option('--directory','-d',
                   dest="directory",
                   default=None,
-                  help="directory to backup [default %default]")
+                  help="directory to backup")
 parser.add_option('--git-dir','-g',
                   dest="git_directory",
                   default=None,
