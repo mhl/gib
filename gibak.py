@@ -93,6 +93,7 @@ from optparse import OptionParser
 from configparser import RawConfigParser
 
 required_git_version = [ 1, 7, 0, 3 ]
+required_git_version_string = ".".join([ str(x) for x in required_git_version ])
 required_git_version_reason = """(Earlier versions may work now, in fact.)"""
 
 configuration_file = '.gib.conf'
@@ -214,7 +215,7 @@ def int_or_still_string(s):
 git_version_split = [ int_or_still_string(x) for x in git_version.split('.') ]
 
 if not git_version_split >= required_git_version:
-    print("Your git version is "+git_version+", version "+(".".join(required_git_version))+" is required:\n")
+    print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string))
     print(required_git_version_reason)
     sys.exit(Errors.VERSION_ERROR)
 
