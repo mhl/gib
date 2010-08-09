@@ -226,7 +226,8 @@ COMMAND must be one of:
     commit
     eat [FILES OR DIRECTORIES...]
     show [FILE]
-    show [FILE] [WHEN]'''
+    show [FILE] [WHEN]
+    git'''
 
 parser = OptionParser(usage=usage_message)
 parser.add_option('--directory','-d',
@@ -651,5 +652,7 @@ elif command == "show":
         if len(args) == 3:
             when = args[2]
         show(rewritten_path,when)
+elif command == "git":
+    call(git(args[1:]))
 else:
     print("Unknown command '{}'".format(command))
