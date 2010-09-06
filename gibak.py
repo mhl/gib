@@ -129,6 +129,7 @@ class Errors:
     NO_SUCH_BRANCH = 9
     REPOSITORY_NOT_INITIALIZED = 10
     GIT_DIRECTORY_RELATIVE = 11
+    FINDING_HEAD = 12
 
 script_name = sys.argv[0]
 
@@ -396,6 +397,23 @@ def check_ref(ref):
 def set_HEAD_to(ref):
     check_call(git(["symbolic-ref","HEAD","refs/heads/{}".format(ref)]))
 
+def currently_on_branch(b):
+    '''Return True if HEAD currently points to the branch 'b', and
+    return False otherwise.  'b' can either be a bare branch name
+    (e.g. 'master') or the full ref name, e.g. 'refs/heads/master')'''
+    p = Popen(git(["symbolic-ref","HEAD"]),stdout=PIPE)
+    c = p.communicate()
+    if 0 != p.returncode:
+        print("Finding what HEAD points to failed",file=sys.stderr)
+        sys.exit(Errors.FINDING_HEAD)
+    result = c[0].decode().strip()
+    if b == result:
+        return True
+    elif ("refs/heads/"+b) == result:
+        return True
+    else:
+        return False
+
 # We deal with the "init" command separately, since it doesn't require
 # that our pre-conditions (e.g. the repository and branch existing)
 # are met before running:
@@ -432,6 +450,9 @@ def init():
     if check_ref("HEAD"):
         print("You're using init and the specified branch ({}) seems to already exist.".format(branch),file=sys.stderr)
         sys.exit(Errors.BRANCH_EXISTS_ON_INIT)
+
+    # Now empty the index:
+    check_call(["rm","-f",os.path.join(git_directory,"index")])
 
     # Now create hooks for updating ometastore before committing, and
     # setting metadata from ometastore after a checkout:
@@ -497,16 +518,31 @@ if command == "init":
     init()
     sys.exit(0)
 
+
+def abort_unless_HEAD_exists():
+    if not check_ref("HEAD"):
+        print("The branch you are trying to back up to does not exist.",file=sys.stderr)
+        print("(Perhaps you haven't run \"{} init\")".format(get_invocation()),file=sys.stderr)
+        sys.exit(Errors.NO_SUCH_BRANCH)
+
 # All the other commands require the repository to be initialized and
 # the branch to already exist:
 
 abort_if_not_initialized()
 
-set_HEAD_to(branch)
-if not check_ref("HEAD"):
-    print("The branch you are trying to back up to does not exist.",file=sys.stderr)
-    sys.exit(Errors.NO_SUCH_BRANCH)
+if not currently_on_branch(branch):
+    set_HEAD_to(branch)
+    abort_unless_HEAD_exists()
+    # Also reset the index to match HEAD.  Otherwise things go
+    # horribly wrong when switching from backing up one computer to
+    # another, since the index is still that from the first one.
+    print("Now working on a new branch, so resetting the index to match...")
+    check_call(git(["reset","--mixed","-q","HEAD"]))
 
+# (If we were already on that branch, assume that the index matches
+# appropriately.)
+
+abort_unless_HEAD_exists()
 abort_unless_no_auto_gc()
 
 def map_filename_for_directory_change(f):
