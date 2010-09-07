@@ -130,6 +130,7 @@ class Errors:
     REPOSITORY_NOT_INITIALIZED = 10
     GIT_DIRECTORY_RELATIVE = 11
     FINDING_HEAD = 12
+    BAD_TREE = 13
 
 script_name = sys.argv[0]
 
@@ -227,6 +228,7 @@ COMMAND must be one of:
     commit
     eat FILES-OR-DIRECTORIES...
     show FILE [COMMIT]
+    extract PATH DESTINATION-DIRECTORY [COMMIT]
     git [GIT-COMMAND]'''
 
 parser = OptionParser(usage=usage_message)
@@ -668,6 +670,42 @@ def show(filename,ref=None):
         ref = "HEAD"
     check_call(git(["show",ref+":"+filename]))
 
+def extract(path,destination_directory,ref=None):
+    if not ref:
+        ref = "HEAD"
+    tree = ref+":"+path
+    if not check_ref(ref):
+        print("The commit '{}' could not be found".format(ref))
+        sys.exit(Errors.NO_SUCH_BRANCH)
+    if not check_tree(tree):
+        print("The path {} in the repository was not a tree (directory)".format(path))
+        sys.exit(Errors.BAD_TREE)
+    if not os.path.exists(destination_directory):
+        print("The destionation directory ({}) does not exist".format(destination_directory,))
+        sys.exit(Errors.USAGE_ERROR)
+    if not os.path.isdir(destination_directory):
+        print("The destination directory ({}) didn't seem to be a directory".format(destination_directory,))
+        sys.exit(Errors.USAGE_ERROR)
+    # In order to apply the permissions with ometastore, make sure that we
+    # extract that file first:
+    ometastore_extracted = os.path.join(destination_directory,".ometastore")
+    fd = os.open(ometastore_extracted,os.O_WRONLY|os.O_CREAT,0o600)
+    with os.fdopen(fd) as fp:
+        check_call(git(["show",ref+":.ometastore"]),stdout=fp)
+    extract_directory = os.path.join(destination_directory,path)
+    os.makedirs(extract_directory)
+    # Now extract the files:
+    check_call("{} archive {} | tar -C {} -x".format(git_for_shell(),
+                                                     shellquote(tree),
+                                                     shellquote(extract_directory)),
+               shell=True)
+    # Now apply the permissions from ometastore.
+    # FIXME: at the moment ometastore can't apply permissions to a
+    # partial tree, so comment this out for the moment:
+    if False:
+        check_call("cd {} && ometastore -v -x -a -i".format(shellquote(destination_directory)),
+                   shell=True)
+
 if command == "commit":
     commit()
     print("After committing the new backup, git status is:",file=sys.stderr)
@@ -692,6 +730,14 @@ elif command == "show":
         if len(args) == 3:
             ref = args[2]
         show(rewritten_path,ref)
+elif command == "extract":
+    if not (3 <= len(args) <= 4):
+        sys.exit(Errors.USAGE_ERROR)
+    path, destination_directory = args[1:3]
+    ref = None
+    if len(args) == 4:
+        ref = args[3]
+    extract(path,destination_directory,ref)
 elif command == "git":
     call(git(args[1:]))
 else:
