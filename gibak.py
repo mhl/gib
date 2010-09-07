@@ -226,7 +226,7 @@ COMMAND must be one of:
     init
     commit
     eat FILES-OR-DIRECTORIES...
-    show FILE [WHEN]
+    show FILE [COMMIT]
     git [GIT-COMMAND]'''
 
 parser = OptionParser(usage=usage_message)
@@ -657,11 +657,10 @@ def eat(files_to_eat):
     commit_message = "Now removing eaten files on "+current_date_and_time_string()
     check_call(git(["commit","-m",commit_message]))
 
-def show(filename,when):
-    if when:
-        check_call(git(["show","master@{"+when+"}:"+filename]))
-    else:
-        check_call(git(["show","master:"+filename]))
+def show(filename,commit):
+    if not commit:
+        commit = "HEAD"
+    check_call(git(["show",commit+":"+filename]))
 
 if command == "commit":
     commit()
@@ -683,10 +682,10 @@ elif command == "show":
         sys.exit(Errors.USAGE_ERROR)
     else:
         rewritten_path = map_filename_for_directory_change(args[1])
-        when = None
+        ref = None
         if len(args) == 3:
-            when = args[2]
-        show(rewritten_path,when)
+            ref = args[2]
+        show(rewritten_path,ref)
 elif command == "git":
     call(git(args[1:]))
 else:
