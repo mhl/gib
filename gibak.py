@@ -716,13 +716,16 @@ elif command == "eat":
         eat(rewritten_paths)
     else:
         print("You must supply at least one file or directory to the \"eat\" command")
+        parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
 elif command == "show":
     if len(args) == 1:
         print("You must supply a filename to the \"show\" command")
+        parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     elif len(args) > 3:
         print("Too many arguments provided for the \"show\" command")
+        parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     else:
         rewritten_path = map_filename_for_directory_change(args[1])
@@ -732,6 +735,7 @@ elif command == "show":
         show(rewritten_path,ref)
 elif command == "extract":
     if not (3 <= len(args) <= 4):
+        parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     path, destination_directory = args[1:3]
     ref = None
