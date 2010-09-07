@@ -225,10 +225,9 @@ COMMAND must be one of:
 
     init
     commit
-    eat [FILES OR DIRECTORIES...]
-    show [FILE]
-    show [FILE] [WHEN]
-    git'''
+    eat FILES-OR-DIRECTORIES...
+    show FILE [WHEN]
+    git [GIT-COMMAND]'''
 
 parser = OptionParser(usage=usage_message)
 parser.add_option('--directory','-d',
