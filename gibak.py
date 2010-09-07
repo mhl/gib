@@ -393,6 +393,12 @@ def check_ref(ref):
     otherwise.'''
     return 0 == call(git(["rev-parse","--verify",ref]),stdout=open('/dev/null','w'),stderr=STDOUT)
 
+def check_tree(tree):
+    '''Returns True if 'tree' can be understood as a tree, e.g. with
+    "git ls-tree" or false otherwise'''
+    with open('/dev/null','w') as null:
+        return 0 == call(git(["ls-tree",tree]),stdout=null,stderr=STDOUT)
+
 def set_HEAD_to(ref):
     check_call(git(["symbolic-ref","HEAD","refs/heads/{}".format(ref)]))
 
