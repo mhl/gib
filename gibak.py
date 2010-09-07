@@ -461,32 +461,6 @@ def init():
     # Now empty the index:
     check_call(["rm","-f",os.path.join(git_directory,"index")])
 
-    # Now create hooks for updating ometastore before committing, and
-    # setting metadata from ometastore after a checkout:
-
-    hooks_directory = os.path.join(git_directory,"hooks")
-
-    pre_commit_hook_path = os.path.join(hooks_directory,"pre-commit")
-    post_checkout_hook_path = os.path.join(hooks_directory,"post-checkout")
-
-    fp = open(pre_commit_hook_path,"w")
-    fp.write('''#!/bin/sh
-set -e
-cd {}
-ometastore -x -s -i --sort
-{} add -f .ometastore'''.format(shellquote(directory_to_backup),
-                                git_for_shell()))
-    fp.close()
-
-    fp = open(post_checkout_hook_path,"w")
-    fp.write('''#!/bin/sh
-set -e
-cd {}
-ometastore -v -x -a -i'''.format(shellquote(directory_to_backup)))
-
-    for h in ( pre_commit_hook_path, post_checkout_hook_path ):
-        check_call(["chmod","u+x",h])
-
     if not os.path.exists(".gitignore"):
         fp = open(".gitignore","w")
         fp.write('''# Here are some examples of what you might want to ignore
@@ -524,7 +498,6 @@ Please run "{} commit" to save a first state in your history'''
 if command == "init":
     init()
     sys.exit(0)
-
 
 def abort_unless_HEAD_exists():
     if not check_ref("HEAD"):
@@ -637,6 +610,12 @@ def commit():
 
     print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
     handle_git_repositories()
+
+    # Previously we had a pre-commit hook that did this - now do it by
+    # hand, since we need a different hook for each directory to back up:
+    print("Record the permissions with ometastore",file=sys.stderr)
+    check_call(["ometastore","-x","-s","-i","--sort"])
+    check_call(git(["add","-f",".ometastore"]))
 
     print("Committing the new state of "+directory_to_backup,file=sys.stderr)
     command = git( [ "commit",
