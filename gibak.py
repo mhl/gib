@@ -663,10 +663,10 @@ def eat(files_to_eat):
     commit_message = "Now removing eaten files on "+current_date_and_time_string()
     check_call(git(["commit","-m",commit_message]))
 
-def show(filename,commit):
-    if not commit:
-        commit = "HEAD"
-    check_call(git(["show",commit+":"+filename]))
+def show(filename,ref=None):
+    if not ref:
+        ref = "HEAD"
+    check_call(git(["show",ref+":"+filename]))
 
 if command == "commit":
     commit()
