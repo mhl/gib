@@ -229,6 +229,7 @@ COMMAND must be one of:
     eat FILES-OR-DIRECTORIES...
     show FILE [COMMIT]
     extract PATH DESTINATION-DIRECTORY [COMMIT]
+    restore [COMMIT]
     git [GIT-COMMAND]'''
 
 parser = OptionParser(usage=usage_message)
@@ -649,6 +650,12 @@ def show(filename,ref=None):
         ref = "HEAD"
     check_call(git(["show",ref+":"+filename]))
 
+def restore(ref=None):
+    if not ref:
+        ref = "HEAD"
+    check_call(git(["reset","--hard",ref]))
+    check_call(["ometastore","-v","-x","-a","-i"])
+
 def extract(path,destination_directory,ref=None):
     if not ref:
         ref = "HEAD"
@@ -721,6 +728,12 @@ elif command == "extract":
     if len(args) == 4:
         ref = args[3]
     extract(path,destination_directory,ref)
+elif command == "restore":
+    if not (1 <= len(args) <= 2):
+        parser.print_help()
+        sys.exit(Errors.USAGE_ERROR)
+    ref = None
+    restore(ref)
 elif command == "git":
     call(git(args[1:]))
 else:
