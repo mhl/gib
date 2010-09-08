@@ -649,9 +649,7 @@ def show(filename,ref=None):
         ref = "HEAD"
     check_call(git(["show",ref+":"+filename]))
 
-def restore(ref=None):
-    if not ref:
-        ref = "HEAD"
+def restore(ref):
     check_call(git(["reset","--hard",ref]))
     check_call(["ometastore","-v","-x","-a","-i"])
 
@@ -731,7 +729,9 @@ elif command == "restore":
     if not (1 <= len(args) <= 2):
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
-    ref = None
+    ref = branch
+    if len(args) == 2:
+        ref = args[1]
     restore(ref)
 elif command == "git":
     call(git(args[1:]))
