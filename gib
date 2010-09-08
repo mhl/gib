@@ -144,13 +144,12 @@ def shellquote(s):
     '''
     return "'" + s.replace("'", "'\\''") + "'"
 
-def version_string_or_abort(name):
-    '''Try to run the program "name" with --version; if "name" is not
+def run_with_option_or_abort(name,option="--version"):
+    '''Try to run the program "name" with "option"; if "name" is not
     on your PATH, exit.  If the command fails, exit.  If the command
-    succeeds, return the version string that was output by the
-    program.'''
+    succeeds, return what the command printed to stdout.'''
     try:
-        p = Popen([name, "--version"], stdout=PIPE)
+        p = Popen([name, option], stdout=PIPE)
     except OSError as e:
         if e.errno == errno.ENOENT:
             print(name+" is not your PATH",file=sys.stderr)
@@ -160,7 +159,7 @@ def version_string_or_abort(name):
             raise
     c = p.communicate()
     if p.returncode != 0:
-        print("'git --version' failed",file=sys.stderr)
+        print("'{} {}' failed".format(name,option),file=sys.stderr)
         sys.exit(Errors.VERSION_ERROR)
     output = c[0].decode()
     return output
@@ -199,7 +198,7 @@ def abort_unless_no_auto_gc():
 
 # Check that git is on your PATH and find the version:
 
-output = version_string_or_abort("git")
+output = run_with_option_or_abort("git")
 m = re.search('^git version (.*)$',output)
 if not m:
     print("The git version string ('{}') was of an unknown format".format(output),file=sys.stderr)
@@ -220,6 +219,11 @@ if not git_version_split >= required_git_version:
     print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string),file=sys.stderr)
     print(required_git_version_reason,file=sys.stderr)
     sys.exit(Errors.VERSION_ERROR)
+
+# Check that the necessary helper programs are also on the user's path:
+
+for p in ( 'find-git-files', 'find-git-repos', 'ometastore' ):
+    run_with_option_or_abort(p,'--help')
 
 usage_message = '''Usage: %prog [OPTIONS] COMMAND
 
