@@ -75,7 +75,7 @@
 # - take out the git-status and add back commands to list untracked
 #   and modified files
 #
-# - add a "find" command that looks through "git ls-tree"
+# - add a "find" command that looks through "git ls-tree" ?
 #
 # - also see FIXMEs
 
