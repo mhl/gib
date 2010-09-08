@@ -25,9 +25,10 @@
 
 # The intended usage of this script is to be able to backup arbitrary
 # directories from different computers to the same git repository kept
-# on a portable USB hard disk, where is a branch in the repository for
-# each directory.  This is very efficient where lots of data is
-# redundantly stored on different systems or in different directories.
+# on a portable USB hard disk, where there is a branch in the
+# repository for each directory.  This is very efficient in terms of
+# disk space where lots of data is redundantly stored on different
+# systems or in different directories.
 
 # On each invocation of the script, first the directory to backup is
 # decided on.  This is done by the following steps:
