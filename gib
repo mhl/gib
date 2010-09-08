@@ -93,7 +93,7 @@ from configparser import RawConfigParser
 
 required_git_version = [ 1, 7, 0, 3 ]
 required_git_version_string = ".".join([ str(x) for x in required_git_version ])
-required_git_version_reason = """(Earlier versions may work now, in fact.)"""
+required_git_version_reason = """(Earlier versions have not been tested, but may work.)"""
 
 configuration_file = '.gib.conf'
 
