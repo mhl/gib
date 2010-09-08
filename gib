@@ -261,6 +261,7 @@ else:
 
 # We need to make sure that this is an absolute path before
 # changing directory:
+
 directory_to_backup = os.path.abspath(directory_to_backup)
 
 # So change into that directory (which will also check that the
@@ -411,6 +412,8 @@ def check_tree(tree):
         return 0 == call(git(["ls-tree",tree]),stdout=null,stderr=STDOUT)
 
 def set_HEAD_to(ref):
+    '''Update head to point to a particular branch, without touching
+    the index or the working tree'''
     check_call(git(["symbolic-ref","HEAD","refs/heads/{}".format(ref)]))
 
 def currently_on_branch(b):
@@ -556,7 +559,7 @@ def map_filename_for_directory_change_absolute(f):
 def find_git_repositories(start_path=directory_to_backup):
     '''Use the find-git-repos command to return a list of all directories
     which are working trees with git repositories.  (In other words, this
-    does not find bare repositories.'''
+    does not find bare repositories.)'''
     p = Popen(["find-git-repos","-i","-z","--path",start_path],stdout=PIPE)
     c = p.communicate()
     return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
@@ -567,6 +570,10 @@ def ensure_trailing_slash(path):
     return re.sub('/*$','/',path)
 
 def handle_git_repositories(start_path=directory_to_backup):
+    '''rsync the git repositories with working trees that are found
+    under "start_path" to the 'git-repositories' subdirectory.  Also
+    append information about that repository to .gitmodules so that it
+    is recorded as a submodule.'''
     abort_if_not_initialized()
     check_call(["rm","-f",".gitmodules"])
     base_directory = os.path.join(os.path.join(git_directory,"git-repositories",branch))
@@ -592,6 +599,7 @@ def current_date_and_time_string():
     return datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
 
 def modified_or_untracked():
+    '''Return all modified or untracked files.'''
     p = Popen(git(["ls-files","-z","--modified","--others","--exclude-standard"]),stdout=PIPE)
     c = p.communicate()
     if p.returncode != 0:
@@ -656,16 +664,21 @@ def eat(files_to_eat):
     check_call(git(["commit","-m",commit_message]))
 
 def show(filename,ref=None):
+    '''Output the contents of filename (the version in 'ref') to standard output.'''
     if not ref:
         ref = "HEAD"
     check_call(git(["show",ref+":"+filename]))
 
 def restore(ref):
+    '''Restore the version of the tree in 'ref'.  This is potentially
+    dangerous since it uses 'git reset --hard' to restore the files.'''
     check_call(git(["reset","--hard",ref]))
     check_call(git(["submodule","update","--init"]))
     check_call(["ometastore","-v","-x","-a","-i"])
 
 def extract(path,destination_directory,ref=None):
+    '''Extract only the tree (directory) at path to 'destination_directory'.
+    'ref' specifies the revision to use for extracting the path from.'''
     if not ref:
         ref = "HEAD"
     tree = ref+":"+path
@@ -676,7 +689,7 @@ def extract(path,destination_directory,ref=None):
         print("The path {} in the repository was not a tree (directory)".format(path),file=sys.stderr)
         sys.exit(Errors.BAD_TREE)
     if not os.path.exists(destination_directory):
-        print("The destionation directory ({}) does not exist".format(destination_directory,),file=sys.stderr)
+        print("The destination directory ({}) does not exist".format(destination_directory,),file=sys.stderr)
         sys.exit(Errors.USAGE_ERROR)
     if not os.path.isdir(destination_directory):
         print("The destination directory ({}) didn't seem to be a directory".format(destination_directory,),file=sys.stderr)
@@ -700,6 +713,8 @@ def extract(path,destination_directory,ref=None):
     if False:
         check_call("cd {} && ometastore -v -x -a -i".format(shellquote(destination_directory)),
                    shell=True)
+
+# Process each of the possible commands apart from 'init':
 
 if command == "commit":
     commit()
