@@ -73,10 +73,10 @@
 # - use a lockfile to prevent multiple concurrent instances, in
 #   particular because each invocation may update HEAD
 #
-# - take out the git-status and add back commands to list untracked
-#   and modified files
+# - take out the git-status after committing, and disply just
+#   modified and untracked files
 #
-# - add a "find" command that looks through "git ls-tree" ?
+# - add the "find-in-repository.py" functionality to this script?
 #
 # - also see FIXMEs
 
