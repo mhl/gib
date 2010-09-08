@@ -733,7 +733,16 @@ elif command == "restore":
     ref = branch
     if len(args) == 2:
         ref = args[1]
-    restore(ref)
+    confirmation_text = "Yes, I understand."
+    print("\nThis will restore the backup to the directory: "+directory_to_backup)
+    print("... which would wipe out any changes in that directory and restore")
+    print("it to the state of '{}' from repository {}".format(ref,git_directory))
+    print("If you understand and want to continue, please type: \"{}\"".format(confirmation_text,))
+    user_input = input()
+    if(user_input == confirmation_text):
+        restore(ref)
+    else:
+        print("'restore' cancelled.")
 elif command == "git":
     call(git(args[1:]))
 else:
