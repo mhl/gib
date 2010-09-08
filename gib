@@ -222,7 +222,7 @@ if not git_version_split >= required_git_version:
 
 # Check that the necessary helper programs are also on the user's path:
 
-for p in ( 'find-git-files', 'find-git-repos', 'ometastore' ):
+for p in ( 'find-git-files', 'find-git-repos', 'ometastore', 'rsync' ):
     run_with_option_or_abort(p,'--help')
 
 usage_message = '''Usage: %prog [OPTIONS] COMMAND
