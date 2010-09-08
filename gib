@@ -217,8 +217,8 @@ def int_or_still_string(s):
 git_version_split = [ int_or_still_string(x) for x in git_version.split('.') ]
 
 if not git_version_split >= required_git_version:
-    print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string))
-    print(required_git_version_reason)
+    print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string),file=sys.stderr)
+    print(required_git_version_reason,file=sys.stderr)
     sys.exit(Errors.VERSION_ERROR)
 
 usage_message = '''Usage: %prog [OPTIONS] COMMAND
@@ -313,7 +313,8 @@ def print_settings():
             branch,
             OptionFrom.string_versions[branch_from],
             git_directory,
-            OptionFrom.string_versions[git_directory_from]))
+            OptionFrom.string_versions[git_directory_from]),
+          file=sys.stderr)
 
 print_settings()
 
@@ -524,7 +525,7 @@ if not currently_on_branch(branch):
     # Also reset the index to match HEAD.  Otherwise things go
     # horribly wrong when switching from backing up one computer to
     # another, since the index is still that from the first one.
-    print("Now working on a new branch, so resetting the index to match...")
+    print("Now working on a new branch, so resetting the index to match...",file=sys.stderr)
     check_call(git(["reset","--mixed","-q","HEAD"]))
 
 # (If we were already on that branch, assume that the index matches
@@ -575,7 +576,7 @@ def handle_git_repositories(start_path=directory_to_backup):
         relative_repository = re.sub('^/*','',r_dot_git)
         destination_repository = os.path.join(base_directory,relative_repository)
         call(["mkdir","-p","-v",os.path.split(destination_repository)[0]])
-        print("rsyncing: {} ({}) => {}".format(r,r_dot_git,destination_repository))
+        print("rsyncing: {} ({}) => {}".format(r,r_dot_git,destination_repository),file=sys.stderr)
         check_call(["rsync","-rltD","--delete-after","--delay-updates",r_dot_git,destination_repository])
         fp = open(".gitmodules","a")
         fp.write('''[submodule "%s"]
@@ -626,16 +627,18 @@ def commit():
     check_call(git(["add","-f",".ometastore"]))
 
     print("Committing the new state of "+directory_to_backup,file=sys.stderr)
-    command = git( [ "commit",
-                     "-m",
-                     "Committed on "+current_date_and_time_string() ] )
-    check_call(command)
+    check_call( git( [ "commit",
+                       "-m",
+                       "Committed on "+current_date_and_time_string() ] ))
 
 def eat(files_to_eat):
+    '''This method makes sure that the files listed in 'files_to_eat'
+    all have their current versions backed-up and then removes them
+    both from the directory to back-up and the repository'''
     if 0 != call(git(["diff","--quiet","--cached"])):
-        print("It looks as if you have some changes staged, and the \"eat\"")
-        print("command requires you to have nothing staged.")
-        print("(To see what's staged, try: \"{} diff --cached --stat\")".format(git_for_shell()))
+        print("It looks as if you have some changes staged, and the \"eat\"",file=sys.stderr)
+        print("command requires you to have nothing staged.",file=sys.stderr)
+        print("(To see what's staged, try: \"{} diff --cached --stat\")".format(git_for_shell()),file=sys.stderr)
         sys.exit(Errors.EATING_WITH_STAGED_CHANGES)
     check_call(git(["add","-v","--"]+files_to_eat))
     # It's possible that the files we want to eat were already in the
@@ -667,16 +670,16 @@ def extract(path,destination_directory,ref=None):
         ref = "HEAD"
     tree = ref+":"+path
     if not check_ref(ref):
-        print("The commit '{}' could not be found".format(ref))
+        print("The commit '{}' could not be found".format(ref),file=sys.stderr)
         sys.exit(Errors.NO_SUCH_BRANCH)
     if not check_tree(tree):
-        print("The path {} in the repository was not a tree (directory)".format(path))
+        print("The path {} in the repository was not a tree (directory)".format(path),file=sys.stderr)
         sys.exit(Errors.BAD_TREE)
     if not os.path.exists(destination_directory):
-        print("The destionation directory ({}) does not exist".format(destination_directory,))
+        print("The destionation directory ({}) does not exist".format(destination_directory,),file=sys.stderr)
         sys.exit(Errors.USAGE_ERROR)
     if not os.path.isdir(destination_directory):
-        print("The destination directory ({}) didn't seem to be a directory".format(destination_directory,))
+        print("The destination directory ({}) didn't seem to be a directory".format(destination_directory,),file=sys.stderr)
         sys.exit(Errors.USAGE_ERROR)
     # In order to apply the permissions with ometastore, make sure that we
     # extract that file first:
@@ -707,16 +710,16 @@ elif command == "eat":
         rewritten_paths = [ map_filename_for_directory_change(x) for x in args[1:] ]
         eat(rewritten_paths)
     else:
-        print("You must supply at least one file or directory to the \"eat\" command")
+        print("You must supply at least one file or directory to the \"eat\" command",file=sys.stderr)
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
 elif command == "show":
     if len(args) == 1:
-        print("You must supply a filename to the \"show\" command")
+        print("You must supply a filename to the \"show\" command",file=sys.stderr)
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     elif len(args) > 3:
-        print("Too many arguments provided for the \"show\" command")
+        print("Too many arguments provided for the \"show\" command",file=sys.stderr)
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     else:
@@ -750,8 +753,8 @@ elif command == "restore":
     if(user_input == confirmation_text):
         restore(ref)
     else:
-        print("'restore' cancelled.")
+        print("'restore' cancelled.",file=sys.stderr)
 elif command == "git":
     call(git(args[1:]))
 else:
-    print("Unknown command '{}'".format(command))
+    print("Unknown command '{}'".format(command),file=sys.stderr)
