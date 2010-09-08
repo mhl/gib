@@ -651,6 +651,7 @@ def show(filename,ref=None):
 
 def restore(ref):
     check_call(git(["reset","--hard",ref]))
+    check_call(git(["submodule","update","--init"]))
     check_call(["ometastore","-v","-x","-a","-i"])
 
 def extract(path,destination_directory,ref=None):
