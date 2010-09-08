@@ -7,24 +7,9 @@ import os
 from optparse import OptionParser
 import errno
 
-# A small script for finding files in a git repository and optionally
-# extracting them.  This is mostly useful for:
-#
-#   - Extracting trees from bare git repositories (normally you can
-#     only extract single blobs with "git show".
-#
-#   - Finding files that you know appeared in the history at some
-#     point, but can't remember where.
-#
-# ------------------------------------------------------------------------
-
-# Find the umask, so we can extract files with appropriate permissions
-original_umask = os.umask(0)
-os.umask(original_umask)
-
-# From http://stackoverflow.com/questions/35817/whats-the-best-way-to-escape-os-system-calls-in-python
-def shellquote(s):
-    return "'" + s.replace("'", "'\\''") + "'"
+# A small script for finding files in a git repository.  This is
+# mostly useful for inding files that you know appeared in the history
+# of some branch at some point, but can't remember where...
 
 def command_to_lines(command,nul=False):
     p = Popen(command,stdout=PIPE)
@@ -39,11 +24,6 @@ def command_to_lines(command,nul=False):
         return str_output.splitlines(False)
 
 parser = OptionParser(usage="Usage: %prog [OPTIONS] PATH-REGEXP")
-parser.add_option('--extract-to', '-e',
-                  dest="extract_to",
-                  metavar="[DIR]",
-                  default=None,
-                  help="extract matching files to [DIR]")
 parser.add_option('--start-ref',
                   dest="start_ref",
                   metavar="[REF]",
@@ -65,16 +45,6 @@ options,args = parser.parse_args()
 if len(args) != 1:
     parser.print_help()
     sys.exit(1)
-
-extract = options.extract_to
-
-if extract:
-    if not os.path.exists(extract):
-        print("The directory '{}' doesn't exist.".format(extract),file=sys.stderr)
-        sys.exit(1)
-    if not os.path.isdir(extract):
-        print("'{}' is not a directory.".format(extract),file=sys.stderr)
-        sys.exit(1)
 
 path_regexp = args[0]
 
@@ -128,20 +98,6 @@ def deal_with_tree(tree,prefix,d='.'):
     for t in tree_to_recursive_list(tree):
         if re.search(path_regexp,t[1]):
             print("{} {} {}".format(prefix,t[0],t[1]))
-            if extract:
-                destination = os.path.join(extract,d,os.path.dirname(t[1]))
-                try:
-                    os.makedirs(destination)
-                except OSError as e:
-                    if e.errno != errno.EEXIST:
-                        raise
-                destination_filename = os.path.join(destination,
-                                                    os.path.basename(t[1]))
-                check_call("git show {} > {}".format(
-                        t[0],
-                        shellquote(destination_filename)),shell=True)
-                permissions = t[2] & ~ original_umask
-                check_call(["chmod","{:o}".format(permissions),destination_filename])
 
 if options.start_tree:
     deal_with_tree(options.start_tree,'None ()')
