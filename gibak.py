@@ -130,6 +130,7 @@ class Errors:
     GIT_DIRECTORY_RELATIVE = 11
     FINDING_HEAD = 12
     BAD_TREE = 13
+    GIT_DIRECTORY_MISSING = 14
 
 script_name = sys.argv[0]
 
@@ -320,6 +321,12 @@ print_settings()
 if not re.search('\.git/*$',git_directory):
     print("The git directory ({}) did not end in '.git'".format(git_directory),file=sys.stderr)
     sys.exit(Errors.BAD_GIT_DIRECTORY)
+
+# Also check that it actually exists:
+
+if not os.path.exists(git_directory):
+    print("The git directory '{}' does not exist.".format(git_directory),file=sys.stderr)
+    sys.exit(Errors.GIT_DIRECTORY_MISSING)
 
 # Set a umask so that everything we create is only readable by the user:
 
