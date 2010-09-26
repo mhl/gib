@@ -78,7 +78,7 @@
 #
 # - add the "find-in-repository.py" functionality to this script?
 #
-# - also see FIXMEs
+# - also see FIXMEs below
 
 from subprocess import call, check_call, Popen, PIPE, STDOUT
 import errno
