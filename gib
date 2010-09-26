@@ -533,7 +533,7 @@ if not currently_on_branch(branch):
     # horribly wrong when switching from backing up one computer to
     # another, since the index is still that from the first one.
     print("Now working on a new branch, so resetting the index to match...",file=sys.stderr)
-    check_call(git(["reset","--mixed","-q","HEAD"]))
+    check_call(git(["read-tree","HEAD"]))
 
 # (If we were already on that branch, assume that the index matches
 # appropriately.)
