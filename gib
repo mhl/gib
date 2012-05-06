@@ -372,6 +372,10 @@ def has_objects_and_refs(path):
     refs_path = os.path.join(path,"refs")
     return exists_and_is_directory(objects_path) and exists_and_is_directory(refs_path)
 
+def probable_non_bare_repository(path):
+    git_directory_path = os.path.join(path,'.git')
+    return has_objects_and_refs(git_directory_path)
+
 def git_initialized():
     '''Returns True if it seems as if the git directory has already
     been intialized, and returns False otherwise'''
@@ -618,6 +622,8 @@ def modified_or_untracked():
 def commit():
     abort_if_not_initialized()
 
+    print("Looking for git repositories that disappeared",file=sys.stderr)
+    unstage_disappeared_submodules()
 
     print("Adding new and modified files.",file=sys.stderr)
 
@@ -780,6 +786,31 @@ def staged_submodules_iterator():
         m = compiled_re.match(rs)
         if m:
             yield(m.group(1))
+
+def is_in_another_git_repository(relative_path):
+    if not exists_and_is_directory(relative_path):
+        raise Exception("{} was not a directory".format(relative_path))
+    while True:
+        parent = os.path.dirname(relative_path)
+        if not parent:
+            return False
+        if probable_non_bare_repository(parent):
+            return True
+        relative_path = parent
+
+def unstage_disappeared_submodules():
+    for s in staged_submodules_iterator():
+        print("Considering submodule:",s)
+        if probable_non_bare_repository(s):
+            # It's possible that we can later run "git init" in a
+            # directory above a submodule - if that seems to have
+            # happened, also unstage this:
+            if not is_in_another_git_repository(s):
+                continue
+        print("Unstaging the submodule: {}".format(s),file=sys.stderr)
+        check_call(git(["rm","--cached","--ignore-unmatch",s]))
+        config_section = "submodule.{}.url".format(s)
+        call(git(["config","--remove-section",s]))
 
 # Process each of the possible commands apart from 'init':
 
