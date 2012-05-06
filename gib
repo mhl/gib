@@ -78,6 +78,13 @@
 #
 # - add the "find-in-repository.py" functionality to this script?
 #
+# - we must maintain a separate config file for each repository - the
+#   submodule entries will be different for each host you're backing
+#   up.
+#
+# - create a xapian database (or something similar) for faster lookup
+#   of files in the backup repository
+#
 # - also see FIXMEs below
 
 from subprocess import call, check_call, Popen, PIPE, STDOUT
