@@ -92,6 +92,9 @@ import pwd
 from optparse import OptionParser
 from configparser import RawConfigParser
 
+default_encoding = sys.getdefaultencoding()
+filename_decode_warning = "Warning: ignoring filename that couldn't be decoded with {}:".format(default_encoding)
+
 required_git_version = [ 1, 7, 0, 3 ]
 required_git_version_string = ".".join([ str(x) for x in required_git_version ])
 required_git_version_reason = """(Earlier versions have not been tested, but may work.)"""
@@ -715,6 +718,68 @@ def extract(path,destination_directory,ref=None):
     if False:
         check_call("cd {} && ometastore -v -x -a -i".format(shellquote(destination_directory)),
                    shell=True)
+
+# This is reformatted version of the recipe here:
+#    http://bugs.python.org/issue1152248
+# It's amazing that there's nothing like this built into Python...
+
+def file_iter_bytes_records(input_file,
+                            separator=b'\n',
+                            output_separator=None,
+                            read_size=8192):
+   '''Like the normal file iter but you can set what string indicates
+   newline.
+
+   The newline string can be arbitrarily long; it need not be
+   restricted to a single character.  You can also set the read size
+   and control whether or not the newline string is left on the end of
+   the iterated lines.  Setting newline to b'\0' is particularly good
+   for use with an input file created with something like
+   "os.popen('find -print0')".'''
+   if output_separator is None:
+       output_separator = separator
+   partial_line = bytes()
+   while True:
+       just_read = input_file.read(read_size)
+       if not just_read:
+           break
+       partial_line += just_read
+       lines = partial_line.split(separator)
+       partial_line = lines.pop()
+       for line in lines:
+           yield line + output_separator
+   if partial_line:
+       yield partial_line
+
+def committed_submodules_iterator(ref='HEAD'):
+    submodule_re = r'^160000\s+commit\s+[0-9a-f]{40}\s+(.*)$'
+    p0 = Popen(git(["ls-tree","-r","-z","HEAD"]),stdout=PIPE)
+    compiled_re = re.compile(submodule_re)
+    for r in file_iter_bytes_records(p0.stdout,b'\0',b''):
+        try:
+            rs = r.decode()
+        except:
+            print(filename_decode_warning+"\n  "+str(r),
+                  file=sys.stderr)
+            continue
+        m = compiled_re.match(rs)
+        if m:
+            yield(m.group(1))
+
+def staged_submodules_iterator():
+    submodule_re = r'^160000\s+[0-9a-f]{40}\s+[0-3]\s+(.*)$'
+    p0 = Popen(git(["ls-files","-s","-z"]),stdout=PIPE)
+    compiled_re = re.compile(submodule_re)
+    for r in file_iter_bytes_records(p0.stdout,b'\0',b''):
+        try:
+            rs = r.decode()
+        except:
+            print(filename_decode_warning+"\n  "+str(r),
+                  file=sys.stderr)
+            continue
+        m = compiled_re.match(rs)
+        if m:
+            yield(m.group(1))
 
 # Process each of the possible commands apart from 'init':
 
