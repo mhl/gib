@@ -593,7 +593,7 @@ def handle_git_repositories(start_path=directory_to_backup):
         fp = open(".gitmodules","a")
         fp.write('''[submodule "%s"]
     path = %s
-    url= %s
+    url = %s
 ''' % (r,r,destination_repository))
         fp.close()
     check_call(["touch",".gitmodules"])
