@@ -88,16 +88,14 @@
 # - also see FIXMEs below
 
 from subprocess import call, check_call, Popen, PIPE, STDOUT
-import errno
 import sys
 import re
 import os
-from os.path import realpath
-import stat
-import datetime
-import pwd
 from optparse import OptionParser
 from configparser import RawConfigParser
+
+from general import *
+from errors import Errors
 
 default_encoding = sys.getdefaultencoding()
 filename_decode_warning = "Warning: ignoring filename that couldn't be decoded with {}:".format(default_encoding)
@@ -127,53 +125,9 @@ git_directory_from = None
 branch = None
 branch_from = None
 
-class Errors:
-    '''enum-like values to use as exit codes'''
-    USAGE_ERROR = 1
-    DEPENDENCY_NOT_FOUND = 2
-    VERSION_ERROR = 3
-    GIT_CONFIG_ERROR = 4
-    STRANGE_ENVIRONMENT = 5
-    EATING_WITH_STAGED_CHANGES = 6
-    BAD_GIT_DIRECTORY = 7
-    BRANCH_EXISTS_ON_INIT = 8
-    NO_SUCH_BRANCH = 9
-    REPOSITORY_NOT_INITIALIZED = 10
-    GIT_DIRECTORY_RELATIVE = 11
-    FINDING_HEAD = 12
-    BAD_TREE = 13
-    GIT_DIRECTORY_MISSING = 14
-
 script_name = sys.argv[0]
 
-hostname = Popen(["hostname"],stdout=PIPE).communicate()[0].decode().strip()
-
-def shellquote(s):
-    '''Quote a string to protect it from the shell.  This implementation is
-    suggested in:
-    http://stackoverflow.com/questions/35817/whats-the-best-way-to-escape-os-system-calls-in-python
-    '''
-    return "'" + s.replace("'", "'\\''") + "'"
-
-def run_with_option_or_abort(name,option="--version"):
-    '''Try to run the program "name" with "option"; if "name" is not
-    on your PATH, exit.  If the command fails, exit.  If the command
-    succeeds, return what the command printed to stdout.'''
-    try:
-        p = Popen([name, option], stdout=PIPE)
-    except OSError as e:
-        if e.errno == errno.ENOENT:
-            print(name+" is not your PATH",file=sys.stderr)
-            sys.exit(Errors.DEPENDENCY_NOT_FOUND)
-        else:
-            # Re-raise any other error:
-            raise
-    c = p.communicate()
-    if p.returncode != 0:
-        print("'{} {}' failed".format(name,option),file=sys.stderr)
-        sys.exit(Errors.VERSION_ERROR)
-    output = c[0].decode()
-    return output
+hostname = get_hostname()
 
 def config_value(key):
     '''Retrieve the git config value for "key", or return
@@ -359,17 +313,6 @@ command = args[0]
 
 # Various helper functions:
 
-def exists_and_is_directory(path):
-    '''Returns True if <path> exists and (after resolving any
-    symlinks) is a directory.  Otherwise returns False.'''
-    if not os.path.exists(path):
-        return False
-    real_path = realpath(path)
-    mode = os.stat(real_path)[stat.ST_MODE]
-    if not stat.S_ISDIR(mode):
-        raise Exception("{} ({}) existed, but was not a directory".format(path,real_path))
-    return True
-
 def has_objects_and_refs(path):
     '''Returns True if <path>/objects and <path>/refs both exist and
     (after resolving any symlinks) are directories; returns False
@@ -474,7 +417,7 @@ def init():
         unset_config_value("core.worktree")
         set_config_value("gc.auto","0")
 
-    default_user_name = re.sub(',.*$','',pwd.getpwuid(os.getuid())[4])
+    default_user_name = get_real_name()
     if not config_value("user.name"):
         set_config_value("user.name",default_user_name)
 
@@ -556,25 +499,6 @@ if not currently_on_branch(branch):
 abort_unless_HEAD_exists()
 abort_unless_no_auto_gc()
 
-def map_filename_for_directory_change(f):
-    '''In commands when we specify files or directories, we would like
-    to be able to tab-complete relative filenames.  This method maps a
-    filename relative to the original working directory to a filename
-    relative to the directory that is being backed up.'''
-    if os.path.isabs(f):
-        return os.path.relpath(f, directory_to_backup)
-    else:
-        return os.path.relpath(os.path.join(original_current_directory,f),
-                               directory_to_backup)
-
-def map_filename_for_directory_change_absolute(f):
-    '''This method takes a (possibly relative) path specified in the
-    original working directory and makes it absolute'''
-    if os.path.isabs(f):
-        return f
-    else:
-        return os.path.join(original_current_directory,f)
-
 def find_git_repositories(start_path=directory_to_backup):
     '''Use the find-git-repos command to return a list of all directories
     which are working trees with git repositories.  (In other words, this
@@ -582,11 +506,6 @@ def find_git_repositories(start_path=directory_to_backup):
     p = Popen(["find-git-repos","-i","-z","--path",start_path],stdout=PIPE)
     c = p.communicate()
     return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
-
-def ensure_trailing_slash(path):
-    '''If path ends in a slash, return path, otherwise return path
-    with a trailing slash added'''
-    return re.sub('/*$','/',path)
 
 def handle_git_repositories(start_path=directory_to_backup):
     '''rsync the git repositories with working trees that are found
@@ -613,9 +532,6 @@ def handle_git_repositories(start_path=directory_to_backup):
     check_call(["touch",".gitmodules"])
     check_call(git(["add","-f",".gitmodules"]))
     check_call(git(["submodule","init"]))
-
-def current_date_and_time_string():
-    return datetime.datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
 
 def modified_or_untracked():
     '''Return all modified or untracked files.'''
@@ -731,38 +647,6 @@ def extract(path,destination_directory,ref=None):
     if False:
         check_call("cd {} && ometastore -v -x -a -i".format(shellquote(destination_directory)),
                    shell=True)
-
-# This is reformatted version of the recipe here:
-#    http://bugs.python.org/issue1152248
-# It's amazing that there's nothing like this built into Python...
-
-def file_iter_bytes_records(input_file,
-                            separator=b'\n',
-                            output_separator=None,
-                            read_size=8192):
-   '''Like the normal file iter but you can set what string indicates
-   newline.
-
-   The newline string can be arbitrarily long; it need not be
-   restricted to a single character.  You can also set the read size
-   and control whether or not the newline string is left on the end of
-   the iterated lines.  Setting newline to b'\0' is particularly good
-   for use with an input file created with something like
-   "os.popen('find -print0')".'''
-   if output_separator is None:
-       output_separator = separator
-   partial_line = bytes()
-   while True:
-       just_read = input_file.read(read_size)
-       if not just_read:
-           break
-       partial_line += just_read
-       lines = partial_line.split(separator)
-       partial_line = lines.pop()
-       for line in lines:
-           yield line + output_separator
-   if partial_line:
-       yield partial_line
 
 def committed_submodules_iterator(ref='HEAD'):
     submodule_re = r'^160000\s+commit\s+[0-9a-f]{40}\s+(.*)$'
