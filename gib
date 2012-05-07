@@ -200,7 +200,7 @@ COMMAND must be one of:
     show FILE [COMMIT]
     extract PATH DESTINATION-DIRECTORY [COMMIT]
     restore [COMMIT]
-    git [GIT-COMMAND]'''
+    git -- [GIT-COMMAND]'''
 
 parser = OptionParser(usage=usage_message)
 parser.add_option('--directory','-d',
