@@ -91,104 +91,14 @@ from subprocess import call, check_call, Popen, PIPE, STDOUT
 import sys
 import re
 import os
-from optparse import OptionParser
-from configparser import RawConfigParser
 
 from general import *
 from errors import Errors
+from githelpers import *
+from gitsetup import *
 
 default_encoding = sys.getdefaultencoding()
 filename_decode_warning = "Warning: ignoring filename that couldn't be decoded with {}:".format(default_encoding)
-
-required_git_version = [ 1, 7, 0, 3 ]
-required_git_version_string = ".".join([ str(x) for x in required_git_version ])
-required_git_version_reason = """(Earlier versions have not been tested, but may work.)"""
-
-configuration_file = '.gib.conf'
-
-class OptionFrom:
-    '''enum-like values to indicate the source of different options, used in
-    directory_to_backup_from, git_directory_from and branch_from'''
-    COMMAND_LINE = 1
-    CONFIGURATION_FILE = 2
-    DEFAULT_VALUE = 3
-    string_versions = { COMMAND_LINE : "command line",
-                        CONFIGURATION_FILE : "configuration file",
-                        DEFAULT_VALUE : "default value" }
-
-directory_to_backup = None
-directory_to_backup_from = None
-
-git_directory = None
-git_directory_from = None
-
-branch = None
-branch_from = None
-
-script_name = sys.argv[0]
-
-hostname = get_hostname()
-
-def config_value(key):
-    '''Retrieve the git config value for "key", or return
-    None if it is not defined'''
-    p = Popen(git(["config",key]),stdout=PIPE)
-    c = p.communicate()
-    if 0 == p.returncode:
-        # Then check that the option is right:
-        return c[0].decode().strip()
-    else:
-        return None
-
-def set_config_value(key,value):
-    check_call(git(["config",key,value]))
-
-def unset_config_value(key):
-    call(git(["config","--unset",key]))
-
-def abort_unless_particular_config(key,required_value):
-    '''Unless the git config has "required_value" set for "key", exit.'''
-    current_value = config_value(key)
-    if current_value:
-        if current_value != required_value:
-            print("The current value for {} is {}, should be: {}".format(key,current_value,required_value),file=sys.stderr)
-            sys.exit(Errors.GIT_CONFIG_ERROR)
-    else:
-        print("The {} config option was not set, setting to {}".format(key,required_value),file=sys.stderr)
-        set_config_value(key,required_value)
-
-def abort_unless_no_auto_gc():
-    '''Exit unless git config has gc.auto set to "0"'''
-    abort_unless_particular_config("gc.auto","0")
-
-# Check that git is on your PATH and find the version:
-
-output = run_with_option_or_abort("git")
-m = re.search('^git version (.*)$',output)
-if not m:
-    print("The git version string ('{}') was of an unknown format".format(output),file=sys.stderr)
-    sys.exit(Errors.VERSION_ERROR)
-git_version = m.group(1).strip()
-
-def int_or_still_string(s):
-    try:
-        return int(s,10)
-    except ValueError:
-        return s
-
-# FIXME: In fact, this doesn't work for versions like "1.6.6.197.gee6f"
-
-git_version_split = [ int_or_still_string(x) for x in git_version.split('.') ]
-
-if not git_version_split >= required_git_version:
-    print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string),file=sys.stderr)
-    print(required_git_version_reason,file=sys.stderr)
-    sys.exit(Errors.VERSION_ERROR)
-
-# Check that the necessary helper programs are also on the user's path:
-
-for p in ( 'find-git-files', 'find-git-repos', 'ometastore', 'rsync' ):
-    run_with_option_or_abort(p,'--help')
 
 usage_message = '''Usage: %prog [OPTIONS] COMMAND
 
@@ -217,88 +127,48 @@ parser.add_option('--branch','-b',
                   help="branch to add new directory state to (for advanced use)")
 options,args = parser.parse_args()
 
-if options.directory:
-    directory_to_backup = options.directory
-    directory_to_backup_from = OptionFrom.COMMAND_LINE
-else:
-    if 'HOME' not in os.environ:
-        # Then we can't use HOME as default directory:
-        print("The HOME environment variable was not set",file=sys.stderr)
-        sys.exit(Errors.STRANGE_ENVIRONMENT)
-    directory_to_backup = os.environ['HOME']
-    directory_to_backup_from = OptionFrom.DEFAULT_VALUE
+setup = GibSetup(options)
 
-# We need to make sure that this is an absolute path before
-# changing directory:
 
-directory_to_backup = os.path.abspath(directory_to_backup)
 
-# So change into that directory (which will also check that the
-# directory exists):
 
-original_current_directory = os.getcwd()
-os.chdir(directory_to_backup)
 
-# Now we know the directory that we're backing up, try to load the
-# config file:
 
-configuration = RawConfigParser()
-configuration.read(configuration_file)
 
-# Now set the git directory:
+# Check that git is on your PATH and find the version:
 
-if options.git_directory:
-    git_directory = options.git_directory
-    git_directory_from = OptionFrom.COMMAND_LINE
-elif configuration.has_option('repository','git_directory'):
-    git_directory = configuration.get('repository','git_directory')
-    git_directory_from = OptionFrom.CONFIGURATION_FILE
-else:
-    git_directory = os.path.join(directory_to_backup,'.git')
-    git_directory_from = OptionFrom.DEFAULT_VALUE
+output = run_with_option_or_abort("git")
+m = re.search('^git version (.*)$',output)
+if not m:
+    print("The git version string ('{}') was of an unknown format".format(output),file=sys.stderr)
+    sys.exit(Errors.VERSION_ERROR)
+git_version = m.group(1).strip()
 
-if not os.path.isabs(git_directory):
-    print("The git directory must be an absolute path.",file=sys.stderr)
-    sys.exit(Errors.GIT_DIRECTORY_RELATIVE)
+def int_or_still_string(s):
+    try:
+        return int(s,10)
+    except ValueError:
+        return s
 
-# And finally the branch:
+# FIXME: In fact, this doesn't work for versions like "1.6.6.197.gee6f"
 
-if options.branch:
-    branch = options.branch
-    branch_from = OptionFrom.COMMAND_LINE
-elif configuration.has_option('repository','branch'):
-    branch = configuration.get('repository','branch')
-    branch_from = OptionFrom.CONFIGURATION_FILE
-else:
-    branch = 'master'
-    branch_from = OptionFrom.DEFAULT_VALUE
+git_version_split = [ int_or_still_string(x) for x in git_version.split('.') ]
 
-def print_settings():
-    print('''Settings for backup:
-  backing up the directory {} (set from the {})
-  ... to the branch "{}" (set from the {})
-  ... in the git repository {} (set from the {})'''.format(
-            directory_to_backup,
-            OptionFrom.string_versions[directory_to_backup_from],
-            branch,
-            OptionFrom.string_versions[branch_from],
-            git_directory,
-            OptionFrom.string_versions[git_directory_from]),
-          file=sys.stderr)
+required_git_version = [ 1, 7, 0, 3 ]
+required_git_version_string = ".".join([ str(x) for x in required_git_version ])
+required_git_version_reason = """(Earlier versions have not been tested, but may work.)"""
 
-print_settings()
+if not git_version_split >= required_git_version:
+    print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string),file=sys.stderr)
+    print(required_git_version_reason,file=sys.stderr)
+    sys.exit(Errors.VERSION_ERROR)
 
-# Check that the git_directory ends in '.git':
+# Check that the necessary helper programs are also on the user's path:
 
-if not re.search('\.git/*$',git_directory):
-    print("The git directory ({}) did not end in '.git'".format(git_directory),file=sys.stderr)
-    sys.exit(Errors.BAD_GIT_DIRECTORY)
+for p in ( 'find-git-files', 'find-git-repos', 'ometastore', 'rsync' ):
+    run_with_option_or_abort(p,'--help')
 
-# Also check that it actually exists:
-
-if not os.path.exists(git_directory):
-    print("The git directory '{}' does not exist.".format(git_directory),file=sys.stderr)
-    sys.exit(Errors.GIT_DIRECTORY_MISSING)
+os.chdir(setup.get_directory_to_backup())
 
 # Set a umask so that everything we create is only readable by the user:
 
@@ -311,90 +181,6 @@ if len(args) < 1:
 
 command = args[0]
 
-# Various helper functions:
-
-def has_objects_and_refs(path):
-    '''Returns True if <path>/objects and <path>/refs both exist and
-    (after resolving any symlinks) are directories; returns False
-    otherwise.  The existence of this directory structure is a
-    resonable sanity check on <path> being a git repository'''
-    objects_path = os.path.join(path,"objects")
-    refs_path = os.path.join(path,"refs")
-    return exists_and_is_directory(objects_path) and exists_and_is_directory(refs_path)
-
-def probable_non_bare_repository(path):
-    git_directory_path = os.path.join(path,'.git')
-    return has_objects_and_refs(git_directory_path)
-
-def git_initialized():
-    '''Returns True if it seems as if the git directory has already
-    been intialized, and returns False otherwise'''
-    return has_objects_and_refs(git_directory)
-
-def abort_if_not_initialized():
-    '''Check that the git repository exists and exit otherwise'''
-    if not git_initialized():
-        print("You don't seem to have initialized {} for backup.".format(directory_to_backup),file=sys.stderr)
-        print("Please use '{} init' to initialize it".format(get_invocation()),file=sys.stderr)
-        sys.exit(Errors.REPOSITORY_NOT_INITIALIZED)
-
-def git(rest_of_command):
-    '''Create an list (suitable for passing to subprocess.call or
-    subprocess.check_call) which runs a git command with the correct
-    git directory and work tree'''
-    return [ "git", "--git-dir="+git_directory, "--work-tree="+directory_to_backup ] + rest_of_command
-
-def git_for_shell():
-    '''Returns a string with shell-safe invocation of git which can be used
-    in calls that are subject to shell interpretation.'''
-    return "git --git-dir="+shellquote(git_directory)+" --work-tree="+shellquote(directory_to_backup)
-
-def get_invocation():
-    '''Return an invocation that would run the script with options
-    that will set directory_to_backup, git_directory and branch as on
-    this invocation.  After init has been called, we can just specify
-    the directory to backup, since the configuration file .gib.conf in
-    that directory will store the git_directory and the branch.  If
-    the directory to backup is just the current user's home directory,
-    then that doesn't need to be specified either.'''
-    invocation = script_name
-    if directory_to_backup != os.environ['HOME']:
-        invocation += " "+"--directory="+shellquote(directory_to_backup)
-    return invocation
-
-def check_ref(ref):
-    '''Returns True if a ref can be resolved to a commit and False
-    otherwise.'''
-    return 0 == call(git(["rev-parse","--verify",ref]),stdout=open('/dev/null','w'),stderr=STDOUT)
-
-def check_tree(tree):
-    '''Returns True if 'tree' can be understood as a tree, e.g. with
-    "git ls-tree" or false otherwise'''
-    with open('/dev/null','w') as null:
-        return 0 == call(git(["ls-tree",tree]),stdout=null,stderr=STDOUT)
-
-def set_HEAD_to(ref):
-    '''Update head to point to a particular branch, without touching
-    the index or the working tree'''
-    check_call(git(["symbolic-ref","HEAD","refs/heads/{}".format(ref)]))
-
-def currently_on_branch(b):
-    '''Return True if HEAD currently points to the branch 'b', and
-    return False otherwise.  'b' can either be a bare branch name
-    (e.g. 'master') or the full ref name, e.g. 'refs/heads/master')'''
-    p = Popen(git(["symbolic-ref","HEAD"]),stdout=PIPE)
-    c = p.communicate()
-    if 0 != p.returncode:
-        print("Finding what HEAD points to failed",file=sys.stderr)
-        sys.exit(Errors.FINDING_HEAD)
-    result = c[0].decode().strip()
-    if b == result:
-        return True
-    elif ("refs/heads/"+b) == result:
-        return True
-    else:
-        return False
-
 # We deal with the "init" command separately, since it doesn't require
 # that our pre-conditions (e.g. the repository and branch existing)
 # are met before running:
@@ -403,37 +189,37 @@ def init():
     '''A method that carries out the "init" command'''
     global configuration
     print("Initializing for backup:")
-    print("and git directory "+git_directory)
+    print("and git directory "+setup.get_git_directory())
     if git_initialized():
-        abort_unless_no_auto_gc()
+        setup.abort_unless_no_auto_gc()
         # We will always set the work tree when using this repository:
-        abort_unless_particular_config('core.bare','false')
+        setup.abort_unless_particular_config('core.bare','false')
     else:
-        check_call(["mkdir","-p",git_directory])
-        check_call(git(["init"]))
+        check_call(["mkdir","-p",setup.get_git_directory()])
+        check_call(setup.git(["init"]))
         # We override core.worktree anyway, and it may be confusing to
         # leave this config option in the repository, since the same
         # repository may be used with many different work trees.
-        unset_config_value("core.worktree")
-        set_config_value("gc.auto","0")
+        setup.unset_config_value("core.worktree")
+        setup.set_config_value("gc.auto","0")
 
     default_user_name = get_real_name()
-    if not config_value("user.name"):
-        set_config_value("user.name",default_user_name)
+    if not setup.config_value("user.name"):
+        setup.set_config_value("user.name",default_user_name)
 
     # Switch HEAD to point to our branch, even though it shouldn't
     # exist yet:
 
-    set_HEAD_to(branch)
+    setup.set_HEAD_to(setup.get_branch())
 
     # If it does exist, then something is wrong:
 
-    if check_ref("HEAD"):
-        print("You're using init and the specified branch ({}) seems to already exist.".format(branch),file=sys.stderr)
+    if setup.check_ref("HEAD"):
+        print("You're using init and the specified branch ({}) seems to already exist.".format(setup.get_branch()),file=sys.stderr)
         sys.exit(Errors.BRANCH_EXISTS_ON_INIT)
 
     # Now empty the index:
-    check_call(["rm","-f",os.path.join(git_directory,"index")])
+    check_call(["rm","-f",os.path.join(setup.get_git_directory(),"index")])
 
     if not os.path.exists(".gitignore"):
         fp = open(".gitignore","w")
@@ -451,14 +237,14 @@ def init():
     # Create the configuration file:
     configuration = RawConfigParser()
     configuration.add_section('repository')
-    configuration.set('repository','git_directory',git_directory)
-    configuration.set('repository','branch',branch)
+    configuration.set('repository','git_directory',setup.get_git_directory())
+    configuration.set('repository','branch',setup.get_branch())
 
     with open(configuration_file, 'w') as cffp:
         configuration.write(cffp)
 
-    check_call(git(["add","-f",".gitignore",configuration_file]))
-    check_call(git(["commit","-q","-a","-mInitialized by "+get_invocation()]))
+    check_call(setup.git(["add","-f",".gitignore",configuration_file]))
+    check_call(setup.git(["commit","-q","-a","-mInitialized by "+setup.get_invocation()]))
 
     suggestion = '''You might be interested in tweaking the file:
 
@@ -466,40 +252,34 @@ def init():
 
 Please run "{} commit" to save a first state in your history'''
 
-    print(suggestion.format(os.path.join(directory_to_backup,'.gitignore'),
-                            get_invocation()))
+    print(suggestion.format(os.path.join(setup.get_directory_to_backup(),'.gitignore'),
+                            setup.get_invocation()))
 
 if command == "init":
     init()
     sys.exit(0)
 
 def abort_unless_HEAD_exists():
-    if not check_ref("HEAD"):
+    if not setup.check_ref("HEAD"):
         print("The branch you are trying to back up to does not exist.",file=sys.stderr)
-        print("(Perhaps you haven't run \"{} init\")".format(get_invocation()),file=sys.stderr)
+        print("(Perhaps you haven't run \"{} init\")".format(setup.get_invocation()),file=sys.stderr)
         sys.exit(Errors.NO_SUCH_BRANCH)
 
 # All the other commands require the repository to be initialized and
 # the branch to already exist:
 
-abort_if_not_initialized()
+setup.abort_if_not_initialized()
 
-if not currently_on_branch(branch):
-    set_HEAD_to(branch)
-    abort_unless_HEAD_exists()
-    # Also reset the index to match HEAD.  Otherwise things go
-    # horribly wrong when switching from backing up one computer to
-    # another, since the index is still that from the first one.
-    print("Now working on a new branch, so resetting the index to match...",file=sys.stderr)
-    check_call(git(["read-tree","HEAD"]))
+if not setup.currently_on_correct_branch():
+    setup.switch_to_correct_branch()
 
 # (If we were already on that branch, assume that the index matches
 # appropriately.)
 
-abort_unless_HEAD_exists()
-abort_unless_no_auto_gc()
+setup.abort_unless_HEAD_exists()
+setup.abort_unless_no_auto_gc()
 
-def find_git_repositories(start_path=directory_to_backup):
+def find_git_repositories(start_path=setup.get_directory_to_backup()):
     '''Use the find-git-repos command to return a list of all directories
     which are working trees with git repositories.  (In other words, this
     does not find bare repositories.)'''
@@ -507,14 +287,14 @@ def find_git_repositories(start_path=directory_to_backup):
     c = p.communicate()
     return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
 
-def handle_git_repositories(start_path=directory_to_backup):
+def handle_git_repositories(start_path=setup.get_directory_to_backup()):
     '''rsync the git repositories with working trees that are found
     under "start_path" to the 'git-repositories' subdirectory.  Also
     append information about that repository to .gitmodules so that it
     is recorded as a submodule.'''
-    abort_if_not_initialized()
+    setup.abort_if_not_initialized()
     check_call(["rm","-f",".gitmodules"])
-    base_directory = os.path.join(os.path.join(git_directory,"git-repositories",branch))
+    base_directory = os.path.join(os.path.join(setup.get_git_directory(),"git-repositories",setup.get_branch()))
     check_call(["mkdir","-p",base_directory])
     for r in find_git_repositories(start_path):
         r_dot_git = ensure_trailing_slash(os.path.join(r,".git"))
@@ -530,12 +310,12 @@ def handle_git_repositories(start_path=directory_to_backup):
 ''' % (r,r,destination_repository))
         fp.close()
     check_call(["touch",".gitmodules"])
-    check_call(git(["add","-f",".gitmodules"]))
-    check_call(git(["submodule","init"]))
+    check_call(setup.git(["add","-f",".gitmodules"]))
+    check_call(setup.git(["submodule","init"]))
 
 def modified_or_untracked():
     '''Return all modified or untracked files.'''
-    p = Popen(git(["ls-files","-z","--modified","--others","--exclude-standard"]),stdout=PIPE)
+    p = Popen(setup.git(["ls-files","-z","--modified","--others","--exclude-standard"]),stdout=PIPE)
     c = p.communicate()
     if p.returncode != 0:
         print("Finding the modified files failed",file=sys.stderr)
@@ -543,20 +323,20 @@ def modified_or_untracked():
     return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
 
 def commit():
-    abort_if_not_initialized()
+    setup.abort_if_not_initialized()
 
     print("Looking for git repositories that disappeared",file=sys.stderr)
     unstage_disappeared_submodules()
 
     print("Adding new and modified files.",file=sys.stderr)
 
-    if 0 != call( git( [ "add", "-v", "--ignore-errors", "." ] ) ):
+    if 0 != call( setup.git( [ "add", "-v", "--ignore-errors", "." ] ) ):
         print("Warning: adding some files failed; check the output from git status below",file=sys.stderr)
 
     print("Removing deleted files from the repository",file=sys.stderr)
     check_call("{} ls-files --deleted -z | xargs -0 -r {} rm --cached --ignore-unmatch".format(
-            git_for_shell(),
-            git_for_shell()),
+            setup.git_for_shell(),
+            setup.git_for_shell()),
                shell=True)
 
     print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
@@ -566,10 +346,10 @@ def commit():
     # hand, since we need a different hook for each directory to back up:
     print("Record the permissions with ometastore",file=sys.stderr)
     check_call(["ometastore","-x","-s","-i","--sort"])
-    check_call(git(["add","-f",".ometastore"]))
+    check_call(setup.git(["add","-f",".ometastore"]))
 
     print("Committing the new state of "+directory_to_backup,file=sys.stderr)
-    check_call( git( [ "commit",
+    check_call( setup.git( [ "commit",
                        "-m",
                        "Committed on "+current_date_and_time_string() ] ))
 
@@ -577,37 +357,37 @@ def eat(files_to_eat):
     '''This method makes sure that the files listed in 'files_to_eat'
     all have their current versions backed-up and then removes them
     both from the directory to back-up and the repository'''
-    if 0 != call(git(["diff","--quiet","--cached"])):
+    if 0 != call(setup.git(["diff","--quiet","--cached"])):
         print("It looks as if you have some changes staged, and the \"eat\"",file=sys.stderr)
         print("command requires you to have nothing staged.",file=sys.stderr)
-        print("(To see what's staged, try: \"{} diff --cached --stat\")".format(git_for_shell()),file=sys.stderr)
+        print("(To see what's staged, try: \"{} diff --cached --stat\")".format(setup.git_for_shell()),file=sys.stderr)
         sys.exit(Errors.EATING_WITH_STAGED_CHANGES)
-    check_call(git(["add","-v","--"]+files_to_eat))
+    check_call(setup.git(["add","-v","--"]+files_to_eat))
     # It's possible that the files we want to eat were already in the
     # last commit and exactly the same.  So, check whether adding them
     # to the index created any difference between the index and HEAD
     # in those files.  Only if it did, create a new commit:
-    if 0 != call(git(["diff","--quiet","--cached","--"]+files_to_eat)):
+    if 0 != call(setup.git(["diff","--quiet","--cached","--"]+files_to_eat)):
         commit_message = "Eating specified files on "+current_date_and_time_string()
-        check_call(git(["commit","-m",commit_message]))
-    check_call(git(["rm","-rf","--"]+files_to_eat))
+        check_call(setup.git(["commit","-m",commit_message]))
+    check_call(setup.git(["rm","-rf","--"]+files_to_eat))
     # The "git rm -rf" may leave empty directories, since git only
     # tracks files, so use "rm -rf" as well:
     check_call(["rm","-rfv","--"]+files_to_eat)
     commit_message = "Now removing eaten files on "+current_date_and_time_string()
-    check_call(git(["commit","-m",commit_message]))
+    check_call(setup.git(["commit","-m",commit_message]))
 
 def show(filename,ref=None):
     '''Output the contents of filename (the version in 'ref') to standard output.'''
     if not ref:
         ref = "HEAD"
-    check_call(git(["show",ref+":"+filename]))
+    check_call(setup.git(["show",ref+":"+filename]))
 
 def restore(ref):
     '''Restore the version of the tree in 'ref'.  This is potentially
     dangerous since it uses 'git reset --hard' to restore the files.'''
-    check_call(git(["reset","--hard",ref]))
-    check_call(git(["submodule","update","--init"]))
+    check_call(setup.git(["reset","--hard",ref]))
+    check_call(setup.git(["submodule","update","--init"]))
     check_call(["ometastore","-v","-x","-a","-i"])
 
 def extract(path,destination_directory,ref=None):
@@ -616,10 +396,10 @@ def extract(path,destination_directory,ref=None):
     if not ref:
         ref = "HEAD"
     tree = ref+":"+path
-    if not check_ref(ref):
+    if not setup.check_ref(ref):
         print("The commit '{}' could not be found".format(ref),file=sys.stderr)
         sys.exit(Errors.NO_SUCH_BRANCH)
-    if not check_tree(tree):
+    if not setup.check_tree(tree):
         print("The path {} in the repository was not a tree (directory)".format(path),file=sys.stderr)
         sys.exit(Errors.BAD_TREE)
     if not os.path.exists(destination_directory):
@@ -633,11 +413,11 @@ def extract(path,destination_directory,ref=None):
     ometastore_extracted = os.path.join(destination_directory,".ometastore")
     fd = os.open(ometastore_extracted,os.O_WRONLY|os.O_CREAT,0o600)
     with os.fdopen(fd) as fp:
-        check_call(git(["show",ref+":.ometastore"]),stdout=fp)
+        check_call(setup.git(["show",ref+":.ometastore"]),stdout=fp)
     extract_directory = os.path.join(destination_directory,path)
     os.makedirs(extract_directory)
     # Now extract the files:
-    check_call("{} archive {} | tar -C {} -x".format(git_for_shell(),
+    check_call("{} archive {} | tar -C {} -x".format(setup.git_for_shell(),
                                                      shellquote(tree),
                                                      shellquote(extract_directory)),
                shell=True)
@@ -650,7 +430,7 @@ def extract(path,destination_directory,ref=None):
 
 def committed_submodules_iterator(ref='HEAD'):
     submodule_re = r'^160000\s+commit\s+[0-9a-f]{40}\s+(.*)$'
-    p0 = Popen(git(["ls-tree","-r","-z","HEAD"]),stdout=PIPE)
+    p0 = Popen(setup.git(["ls-tree","-r","-z","HEAD"]),stdout=PIPE)
     compiled_re = re.compile(submodule_re)
     for r in file_iter_bytes_records(p0.stdout,b'\0',b''):
         try:
@@ -665,7 +445,7 @@ def committed_submodules_iterator(ref='HEAD'):
 
 def staged_submodules_iterator():
     submodule_re = r'^160000\s+[0-9a-f]{40}\s+[0-3]\s+(.*)$'
-    p0 = Popen(git(["ls-files","-s","-z"]),stdout=PIPE)
+    p0 = Popen(setup.git(["ls-files","-s","-z"]),stdout=PIPE)
     compiled_re = re.compile(submodule_re)
     for r in file_iter_bytes_records(p0.stdout,b'\0',b''):
         try:
@@ -678,17 +458,6 @@ def staged_submodules_iterator():
         if m:
             yield(m.group(1))
 
-def is_in_another_git_repository(relative_path):
-    if not exists_and_is_directory(relative_path):
-        raise Exception("{} was not a directory".format(relative_path))
-    while True:
-        parent = os.path.dirname(relative_path)
-        if not parent:
-            return False
-        if probable_non_bare_repository(parent):
-            return True
-        relative_path = parent
-
 def unstage_disappeared_submodules():
     for s in staged_submodules_iterator():
         print("Considering submodule:",s)
@@ -699,16 +468,16 @@ def unstage_disappeared_submodules():
             if not is_in_another_git_repository(s):
                 continue
         print("Unstaging the submodule: {}".format(s),file=sys.stderr)
-        check_call(git(["rm","--cached","--ignore-unmatch",s]))
+        check_call(setup.git(["rm","--cached","--ignore-unmatch",s]))
         config_section = "submodule.{}.url".format(s)
-        call(git(["config","--remove-section",s]))
+        call(setup.git(["config","--remove-section",s]))
 
 # Process each of the possible commands apart from 'init':
 
 if command == "commit":
     commit()
     print("After committing the new backup, git status is:",file=sys.stderr)
-    print(Popen(git(["status"]),stdout=PIPE).communicate()[0].decode())
+    print(Popen(setup.git(["status"]),stdout=PIPE).communicate()[0].decode())
 elif command == "eat":
     if len(args) > 1:
         rewritten_paths = [ map_filename_for_directory_change(x) for x in args[1:] ]
@@ -745,13 +514,13 @@ elif command == "restore":
     if not (1 <= len(args) <= 2):
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
-    ref = branch
+    ref = setup.get_branch()
     if len(args) == 2:
         ref = args[1]
     confirmation_text = "Yes, I understand."
     print("\nThis will restore the backup to the directory: "+directory_to_backup)
     print("... which would wipe out any changes in that directory and restore")
-    print("it to the state of '{}' from repository {}".format(ref,git_directory))
+    print("it to the state of '{}' from repository {}".format(ref,setup.get_git_directory()))
     print("If you understand and want to continue, please type: \"{}\"".format(confirmation_text,))
     user_input = input()
     if(user_input == confirmation_text):
@@ -759,6 +528,6 @@ elif command == "restore":
     else:
         print("'restore' cancelled.",file=sys.stderr)
 elif command == "git":
-    call(git(args[1:]))
+    call(setup.git(args[1:]))
 else:
     print("Unknown command '{}'".format(command),file=sys.stderr)
