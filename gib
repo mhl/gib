@@ -348,7 +348,7 @@ def commit():
     check_call(["ometastore","-x","-s","-i","--sort"])
     check_call(setup.git(["add","-f",".ometastore"]))
 
-    print("Committing the new state of "+directory_to_backup,file=sys.stderr)
+    print("Committing the new state of "+setup.get_directory_to_backup(),file=sys.stderr)
     check_call( setup.git( [ "commit",
                        "-m",
                        "Committed on "+current_date_and_time_string() ] ))
@@ -518,7 +518,7 @@ elif command == "restore":
     if len(args) == 2:
         ref = args[1]
     confirmation_text = "Yes, I understand."
-    print("\nThis will restore the backup to the directory: "+directory_to_backup)
+    print("\nThis will restore the backup to the directory: "+setup.get_directory_to_backup())
     print("... which would wipe out any changes in that directory and restore")
     print("it to the state of '{}' from repository {}".format(ref,setup.get_git_directory()))
     print("If you understand and want to continue, please type: \"{}\"".format(confirmation_text,))

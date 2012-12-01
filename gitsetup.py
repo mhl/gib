@@ -1,6 +1,6 @@
 import os
 import sys
-from subprocess import call, STDOUT
+from subprocess import call, check_call, STDOUT
 
 from optparse import OptionParser
 from configparser import RawConfigParser
@@ -192,7 +192,7 @@ backing up the directory {} (set from the {})
             return False
 
     def switch_to_correct_branch(self):
-        self.set_HEAD_to(branch)
+        self.set_HEAD_to(self.branch)
         self.abort_unless_HEAD_exists()
         # Also reset the index to match HEAD.  Otherwise things go
         # horribly wrong when switching from backing up one computer to
