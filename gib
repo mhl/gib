@@ -190,7 +190,7 @@ def init():
     global configuration
     print("Initializing for backup:")
     print("and git directory "+setup.get_git_directory())
-    if git_initialized():
+    if setup.git_initialized():
         setup.abort_unless_no_auto_gc()
         # We will always set the work tree when using this repository:
         setup.abort_unless_particular_config('core.bare','false')
@@ -240,10 +240,10 @@ def init():
     configuration.set('repository','git_directory',setup.get_git_directory())
     configuration.set('repository','branch',setup.get_branch())
 
-    with open(configuration_file, 'w') as cffp:
+    with open(setup.configuration_file, 'w') as cffp:
         configuration.write(cffp)
 
-    check_call(setup.git(["add","-f",".gitignore",configuration_file]))
+    check_call(setup.git(["add","-f",".gitignore",setup.configuration_file]))
     check_call(setup.git(["commit","-q","-a","-mInitialized by "+setup.get_invocation()]))
 
     suggestion = '''You might be interested in tweaking the file:
