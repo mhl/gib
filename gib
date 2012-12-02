@@ -296,7 +296,7 @@ def handle_git_repositories(start_path=setup.get_directory_to_backup()):
     check_call(["rm","-f",".gitmodules"])
     base_directory = os.path.join(os.path.join(setup.get_git_directory(),"git-repositories",setup.get_branch()))
     check_call(["mkdir","-p",base_directory])
-    for r in find_git_repositories(start_path):
+    for r in staged_submodules_iterator():
         r_dot_git = ensure_trailing_slash(os.path.join(r,".git"))
         relative_repository = re.sub('^/*','',r_dot_git)
         destination_repository = os.path.join(base_directory,relative_repository)
