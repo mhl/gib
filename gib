@@ -279,14 +279,6 @@ if not setup.currently_on_correct_branch():
 setup.abort_unless_HEAD_exists()
 setup.abort_unless_no_auto_gc()
 
-def find_git_repositories(start_path=setup.get_directory_to_backup()):
-    '''Use the find-git-repos command to return a list of all directories
-    which are working trees with git repositories.  (In other words, this
-    does not find bare repositories.)'''
-    p = Popen(["find-git-repos","-i","-z","--path",start_path],stdout=PIPE)
-    c = p.communicate()
-    return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
-
 def handle_git_repositories(start_path=setup.get_directory_to_backup()):
     '''rsync the git repositories with working trees that are found
     under "start_path" to the 'git-repositories' subdirectory.  Also
