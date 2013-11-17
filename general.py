@@ -59,7 +59,7 @@ def exists_and_is_directory(path):
         raise Exception("{} ({}) existed, but was not a directory".format(path,real_path))
     return True
 
-def map_filename_for_directory_change(f):
+def map_filename_for_directory_change(f, original_current_directory, directory_to_backup):
     '''In commands when we specify files or directories, we would like
     to be able to tab-complete relative filenames.  This method maps a
     filename relative to the original working directory to a filename

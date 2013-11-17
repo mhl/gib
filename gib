@@ -97,6 +97,8 @@ from errors import Errors
 from githelpers import *
 from gitsetup import *
 
+original_current_directory = os.getcwd()
+
 default_encoding = sys.getdefaultencoding()
 filename_decode_warning = "Warning: ignoring filename that couldn't be decoded with {}:".format(default_encoding)
 
@@ -472,7 +474,10 @@ if command == "commit":
     print(Popen(setup.git(["status"]),stdout=PIPE).communicate()[0].decode())
 elif command == "eat":
     if len(args) > 1:
-        rewritten_paths = [ map_filename_for_directory_change(x) for x in args[1:] ]
+        rewritten_paths = [ map_filename_for_directory_change(x,
+                                                              original_current_directory,
+                                                              setup.get_directory_to_backup())
+                            for x in args[1:] ]
         eat(rewritten_paths)
     else:
         print("You must supply at least one file or directory to the \"eat\" command",file=sys.stderr)
