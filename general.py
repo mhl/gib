@@ -71,14 +71,6 @@ def map_filename_for_directory_change(f, original_current_directory, directory_t
         return os.path.relpath(os.path.join(original_current_directory,f),
                                directory_to_backup)
 
-def map_filename_for_directory_change_absolute(f):
-    '''This method takes a (possibly relative) path specified in the
-    original working directory and makes it absolute'''
-    if os.path.isabs(f):
-        return f
-    else:
-        return os.path.join(original_current_directory,f)
-
 def ensure_trailing_slash(path):
     '''If path ends in a slash, return path, otherwise return path
     with a trailing slash added'''
