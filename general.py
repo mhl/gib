@@ -10,6 +10,7 @@ import os
 from os.path import realpath
 import stat
 import pwd
+from contextlib import contextmanager
 
 def get_hostname():
     '''Return the unqualified hostname of this computer'''
@@ -114,3 +115,12 @@ def file_iter_bytes_records(input_file,
            yield line + output_separator
    if partial_line:
        yield partial_line
+
+@contextmanager
+def cd(path):
+    old_dir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old_dir)
