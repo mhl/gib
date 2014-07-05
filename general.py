@@ -29,6 +29,19 @@ def shellquote(s):
     '''
     return "'" + s.replace("'", "'\\''") + "'"
 
+def mkdir_p(path):
+    '''The equivalent of 'mkdir -p' in Python
+
+    This implementation is from http://stackoverflow.com/a/600612/223092
+    '''
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
 def run_with_option_or_abort(name,option="--version"):
     '''Try to run the program "name" with "option"; if "name" is not
     on your PATH, exit.  If the command fails, exit.  If the command

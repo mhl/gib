@@ -197,7 +197,7 @@ def init():
         # We will always set the work tree when using this repository:
         setup.abort_unless_particular_config('core.bare','false')
     else:
-        check_call(["mkdir","-p",setup.get_git_directory()])
+        mkdir_p(setup.get_git_directory())
         check_call(setup.git(["init"]))
         # We override core.worktree anyway, and it may be confusing to
         # leave this config option in the repository, since the same
@@ -289,12 +289,12 @@ def handle_git_repositories(start_path=setup.get_directory_to_backup()):
     setup.abort_if_not_initialized()
     check_call(["rm","-f",".gitmodules"])
     base_directory = os.path.join(os.path.join(setup.get_git_directory(),"git-repositories",setup.get_branch()))
-    check_call(["mkdir","-p",base_directory])
+    mkdir_p(base_directory)
     for r in staged_submodules_iterator():
         r_dot_git = ensure_trailing_slash(os.path.join(r,".git"))
         relative_repository = re.sub('^/*','',r_dot_git)
         destination_repository = os.path.join(base_directory,relative_repository)
-        call(["mkdir","-p","-v",os.path.split(destination_repository)[0]])
+        mkdir_p(os.path.split(destination_repository)[0])
         print("rsyncing: {} ({}) => {}".format(r,r_dot_git,destination_repository),file=sys.stderr)
         check_call(["rsync","-rltD","--delete-after","--delay-updates",r_dot_git,destination_repository])
         fp = open(".gitmodules","a")
@@ -409,7 +409,7 @@ def extract(path,destination_directory,ref=None):
     with os.fdopen(fd) as fp:
         check_call(setup.git(["show",ref+":.ometastore"]),stdout=fp)
     extract_directory = os.path.join(destination_directory,path)
-    os.makedirs(extract_directory)
+    mkdir_p(extract_directory)
     # Now extract the files:
     check_call("{} archive {} | tar -C {} -x".format(setup.git_for_shell(),
                                                      shellquote(tree),
