@@ -87,7 +87,7 @@
 #
 # - also see FIXMEs below
 
-from subprocess import call, check_call, Popen, PIPE, STDOUT
+from subprocess import call, check_call, check_output, Popen, PIPE, STDOUT
 import sys
 import re
 import os
@@ -112,6 +112,7 @@ COMMAND must be one of:
     show FILE [COMMIT]
     extract PATH DESTINATION-DIRECTORY [COMMIT]
     restore [COMMIT]
+    update-file-list
     git -- [GIT-COMMAND]'''
 
 parser = OptionParser(usage=usage_message)
@@ -466,6 +467,34 @@ def unstage_disappeared_submodules():
         config_section = "submodule.{}.url".format(s)
         call(setup.git(["config","--remove-section",s]))
 
+def update_file_list():
+    directory = setup.get_file_list_directory()
+    mkdir_p(directory)
+    p_commits = Popen(setup.git(["rev-list", "--all"]), stdout=PIPE)
+    for line in p_commits.stdout:
+        commit = line.decode().strip()
+        full_commit_date = check_output(
+            setup.git(
+                ['log', '-1', '--pretty=format:%ad', '--date=iso', commit]
+            )).decode()
+        date_match = re.search(r'^(\d{4}-\d{2}-\d{2})', full_commit_date)
+        if not date_match:
+            raise Exception("Unknown date format found: " + full_commit_date)
+        file_list_leafname = date_match.group(1) + '-' + commit + '.txt'
+        file_list_filename = os.path.join(
+            directory,
+            file_list_leafname)
+        if not os.path.exists(file_list_filename):
+            print("Creating the file list:", file_list_leafname)
+            with open(file_list_filename, 'wb') as f:
+                p = Popen(
+                    setup.git(["ls-tree", "--name-only", "-r", commit]),
+                    stdout=f
+                )
+                if p.wait() != 0:
+                    message = "Finding files in commit {} failed"
+                    raise Exception(message.format(commit))
+
 # Process each of the possible commands apart from 'init':
 
 if command == "commit":
@@ -528,5 +557,7 @@ elif command == "restore":
         print("'restore' cancelled.",file=sys.stderr)
 elif command == "git":
     call(setup.git(args[1:]))
+elif command == "update-file-list":
+    update_file_list()
 else:
     print("Unknown command '{}'".format(command),file=sys.stderr)

@@ -105,6 +105,12 @@ class GibSetup:
     def get_git_directory(self):
         return self.git_directory
 
+    def get_file_list_directory(self):
+        return os.path.join(
+            self.get_git_directory(),
+            'file-lists'
+        )
+
     def get_branch(self):
         return self.branch
 
