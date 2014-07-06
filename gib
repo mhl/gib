@@ -458,8 +458,8 @@ def unstage_disappeared_submodules():
                 continue
         print("Unstaging the submodule: {}".format(s),file=sys.stderr)
         check_call(setup.git(["rm","--cached","--ignore-unmatch",s]))
-        config_section = "submodule.{}.url".format(s)
-        call(setup.git(["config","--remove-section",s]))
+        config_section = "submodule.{}".format(s)
+        call(setup.git(["config","--remove-section",config_section]))
 
 def update_file_list():
     directory = setup.get_file_list_directory()
