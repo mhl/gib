@@ -132,12 +132,6 @@ options,args = parser.parse_args()
 
 setup = GibSetup(options)
 
-
-
-
-
-
-
 # Check that git is on your PATH and find the version:
 
 output = run_with_option_or_abort("git")
