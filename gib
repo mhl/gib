@@ -501,6 +501,12 @@ if command == "commit":
     commit()
     print("After committing the new backup, git status is:",file=sys.stderr)
     print(Popen(setup.git(["status"]),stdout=PIPE).communicate()[0].decode())
+    print(
+        "Creating lists of files in backup in:",
+        setup.get_file_list_directory(),
+        file=sys.stderr
+    )
+    update_file_list()
 elif command == "eat":
     if len(args) > 1:
         rewritten_paths = [ map_filename_for_directory_change(x,
