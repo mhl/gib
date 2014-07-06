@@ -1,14 +1,13 @@
+from configparser import RawConfigParser
 import os
 import re
-import sys
 from subprocess import call, check_call, Popen, PIPE, STDOUT
+import sys
 
-from configparser import RawConfigParser
-
+from errors import Errors
 from general import (
     exists_and_is_directory, shellquote
 )
-from errors import Errors
 from githelpers import has_objects_and_refs
 
 class OptionFrom:

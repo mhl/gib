@@ -89,17 +89,17 @@
 
 from configparser import RawConfigParser
 from optparse import OptionParser
+import os
+import re
 from subprocess import call, check_call, check_output, Popen, PIPE
 import sys
-import re
-import os
 
+from errors import Errors
 from general import (
     mkdir_p, run_with_option_or_abort, get_real_name, ensure_trailing_slash,
     current_date_and_time_string, shellquote, file_iter_bytes_records,
     map_filename_for_directory_change
 )
-from errors import Errors
 from githelpers import (
     probable_non_bare_repository, is_in_another_git_repository
 )

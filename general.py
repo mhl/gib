@@ -1,17 +1,18 @@
 # These are useful functions used by gib that are not specifically
 # related to git.
 
-from subprocess import Popen, PIPE
-import errno
-import re
-import sys
+from contextlib import contextmanager
 import datetime
-from errors import Errors
+import errno
 import os
 from os.path import realpath
-import stat
 import pwd
-from contextlib import contextmanager
+import re
+import stat
+from subprocess import Popen, PIPE
+import sys
+
+from errors import Errors
 
 def get_hostname():
     '''Return the unqualified hostname of this computer'''
