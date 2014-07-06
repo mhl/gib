@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-from subprocess import Popen, PIPE, check_call
+from subprocess import Popen, PIPE
 import re
 import sys
 import os
 from optparse import OptionParser
-import errno
 
 # A small script for finding files in a git repository.  This is
 # mostly useful for inding files that you know appeared in the history

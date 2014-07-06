@@ -1,13 +1,15 @@
 import os
+import re
 import sys
-from subprocess import call, check_call, STDOUT
+from subprocess import call, check_call, Popen, PIPE, STDOUT
 
-from optparse import OptionParser
 from configparser import RawConfigParser
 
-from general import *
+from general import (
+    exists_and_is_directory, shellquote
+)
 from errors import Errors
-from githelpers import *
+from githelpers import has_objects_and_refs
 
 class OptionFrom:
     '''enum-like values to indicate the source of different options, used in
@@ -68,7 +70,7 @@ class GibSetup:
             self.git_directory = configuration.get('repository','git_directory')
             self.git_directory_from = OptionFrom.CONFIGURATION_FILE
         else:
-            self.git_directory = os.path.join(directory_to_backup,'.git')
+            self.git_directory = os.path.join(self.directory_to_backup,'.git')
             self.git_directory_from = OptionFrom.DEFAULT_VALUE
 
         if not os.path.isabs(self.git_directory):

@@ -1,4 +1,6 @@
-from general import *
+import os
+
+from general import exists_and_is_directory
 
 def has_objects_and_refs(path):
     '''Returns True if <path>/objects and <path>/refs both exist and
