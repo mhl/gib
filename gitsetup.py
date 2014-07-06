@@ -66,7 +66,9 @@ class GibSetup:
             self.git_directory = command_line_options.git_directory
             self.git_directory_from = OptionFrom.COMMAND_LINE
         elif configuration.has_option('repository','git_directory'):
-            self.git_directory = configuration.get('repository','git_directory')
+            self.git_directory = configuration.get(
+                'repository','git_directory'
+            )
             self.git_directory_from = OptionFrom.CONFIGURATION_FILE
         else:
             self.git_directory = os.path.join(self.directory_to_backup,'.git')
@@ -91,13 +93,15 @@ class GibSetup:
         # Check that the git_directory ends in '.git':
 
         if not re.search('\.git/*$',self.git_directory):
-            print_stderr("The git directory ({}) did not end in '.git'".format(self.git_directory))
+            message = "The git directory ({}) did not end in '.git'"
+            print_stderr(message.format(self.git_directory))
             sys.exit(Errors.BAD_GIT_DIRECTORY)
 
         # Also check that it actually exists:
 
         if not os.path.exists(self.git_directory):
-            print_stderr("The git directory '{}' does not exist.".format(self.git_directory))
+            message = "The git directory '{}' does not exist."
+            print_stderr(message.format(self.git_directory))
             sys.exit(Errors.GIT_DIRECTORY_MISSING)
 
     def get_directory_to_backup(self):
@@ -138,7 +142,8 @@ backing up the directory {} (set from the {})
         then that doesn't need to be specified either.'''
         invocation = sys.argv[0]
         if self.directory_to_backup != os.environ['HOME']:
-            invocation += " " + "--directory=" + shellquote(self.directory_to_backup)
+            invocation += " " + "--directory="
+            invocation += shellquote(self.directory_to_backup)
         return invocation
 
     def git(self,rest_of_command):
@@ -152,7 +157,9 @@ backing up the directory {} (set from the {})
     def git_for_shell(self):
         '''Returns a string with shell-safe invocation of git which can be used
         in calls that are subject to shell interpretation.'''
-        return "git --git-dir="+shellquote(self.git_directory)+" --work-tree="+shellquote(self.directory_to_backup)
+        command = "git --git-dir="+shellquote(self.git_directory)
+        command += " --work-tree="+shellquote(self.directory_to_backup)
+        return command
 
     def git_initialized(self):
         '''Returns True if it seems as if the git directory has already
@@ -162,25 +169,37 @@ backing up the directory {} (set from the {})
     def abort_if_not_initialized(self):
         '''Check that the git repository exists and exit otherwise'''
         if not self.git_initialized():
-            print_stderr("You don't seem to have initialized {} for backup.".format(self.directory_to_backup))
-            print_stderr("Please use '{} init' to initialize it".format(self.get_invocation()))
+            message = "You don't seem to have initialized {} for backup."
+            print_stderr(message.format(self.directory_to_backup))
+            message = "Please use '{} init' to initialize it"
+            print_stderr(message.format(self.get_invocation()))
             sys.exit(Errors.REPOSITORY_NOT_INITIALIZED)
 
     def check_ref(self,ref):
         '''Returns True if a ref can be resolved to a commit and False
         otherwise.'''
-        return 0 == call(self.git(["rev-parse","--verify",ref]),stdout=open('/dev/null','w'),stderr=STDOUT)
+        return 0 == call(
+            self.git(["rev-parse","--verify",ref]),
+            stdout=open('/dev/null','w'),
+            stderr=STDOUT
+        )
 
     def check_tree(self,tree):
         '''Returns True if 'tree' can be understood as a tree, e.g. with
         "git ls-tree" or false otherwise'''
         with open('/dev/null','w') as null:
-            return 0 == call(self.git(["ls-tree",tree]),stdout=null,stderr=STDOUT)
+            return 0 == call(
+                self.git(["ls-tree",tree]),
+                stdout=null,
+                stderr=STDOUT
+            )
 
     def set_HEAD_to(self,ref):
         '''Update head to point to a particular branch, without touching
         the index or the working tree'''
-        check_call(self.git(["symbolic-ref","HEAD","refs/heads/{}".format(ref)]))
+        check_call(
+            self.git(["symbolic-ref","HEAD","refs/heads/{}".format(ref)])
+        )
 
     def currently_on_correct_branch(self):
         '''Return True if HEAD currently points to 'self.branch', and
@@ -204,7 +223,8 @@ backing up the directory {} (set from the {})
         # Also reset the index to match HEAD.  Otherwise things go
         # horribly wrong when switching from backing up one computer to
         # another, since the index is still that from the first one.
-        print_stderr("Now working on a new branch, so resetting the index to match...")
+        msg = "Now working on a new branch, so resetting the index to match..."
+        print_stderr(msg)
         check_call(self.git(["read-tree","HEAD"]))
 
     def config_value(self,key):
@@ -229,10 +249,16 @@ backing up the directory {} (set from the {})
         current_value = self.config_value(key)
         if current_value:
             if current_value != required_value:
-                print_stderr("The current value for {} is {}, should be: {}".format(key,current_value,required_value))
+                message = "The current value for {} is {}, should be: {}"
+                print_stderr(message.format(
+                    key,
+                    current_value,
+                    required_value
+                ))
                 sys.exit(Errors.GIT_CONFIG_ERROR)
         else:
-            print_stderr("The {} config option was not set, setting to {}".format(key,required_value))
+            message = "The {} config option was not set, setting to {}"
+            print_stderr(message.format(key,required_value))
             self.set_config_value(key,required_value)
 
     def abort_unless_no_auto_gc(self):
@@ -241,6 +267,7 @@ backing up the directory {} (set from the {})
 
     def abort_unless_HEAD_exists(self):
         if not self.check_ref("HEAD"):
-            print_stderr("The branch you are trying to back up to does not exist.")
-            print_stderr("(Perhaps you haven't run \"{} init\")".format(self.get_invocation()))
+            message = '''The branch you are trying to back up to does not exist.
+(Perhaps you haven't run "{} init")'''
+            print_stderr(message.format(self.get_invocation()))
             sys.exit(Errors.NO_SUCH_BRANCH)

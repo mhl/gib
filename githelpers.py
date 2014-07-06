@@ -9,7 +9,8 @@ def has_objects_and_refs(path):
     resonable sanity check on <path> being a git repository'''
     objects_path = os.path.join(path,"objects")
     refs_path = os.path.join(path,"refs")
-    return exists_and_is_directory(objects_path) and exists_and_is_directory(refs_path)
+    return exists_and_is_directory(objects_path) and \
+        exists_and_is_directory(refs_path)
 
 def probable_non_bare_repository(path):
     git_directory_path = os.path.join(path,'.git')
