@@ -14,6 +14,9 @@ import sys
 
 from errors import Errors
 
+def print_stderr(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 def get_hostname():
     '''Return the unqualified hostname of this computer'''
     return Popen(["hostname"],stdout=PIPE).communicate()[0].decode().strip()
@@ -52,14 +55,14 @@ def run_with_option_or_abort(name,option="--version"):
         p = Popen([name, option], stdout=PIPE)
     except OSError as e:
         if e.errno == errno.ENOENT:
-            print(name+" is not your PATH",file=sys.stderr)
+            print_stderr(name+" is not your PATH")
             sys.exit(Errors.DEPENDENCY_NOT_FOUND)
         else:
             # Re-raise any other error:
             raise
     c = p.communicate()
     if p.returncode != 0:
-        print("'{} {}' failed".format(name,option),file=sys.stderr)
+        print_stderr("'{} {}' failed".format(name,option))
         sys.exit(Errors.VERSION_ERROR)
     output = c[0].decode()
     return output

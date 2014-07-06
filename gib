@@ -98,7 +98,7 @@ from errors import Errors
 from general import (
     mkdir_p, run_with_option_or_abort, get_real_name, ensure_trailing_slash,
     current_date_and_time_string, shellquote, file_iter_bytes_records,
-    map_filename_for_directory_change
+    map_filename_for_directory_change, print_stderr
 )
 from githelpers import (
     probable_non_bare_repository, is_in_another_git_repository
@@ -108,7 +108,8 @@ from gitsetup import GibSetup
 original_current_directory = os.getcwd()
 
 default_encoding = sys.getdefaultencoding()
-filename_decode_warning = "Warning: ignoring filename that couldn't be decoded with {}:".format(default_encoding)
+filename_decode_warning = "Warning: ignoring filename that couldn't be decoded"
+filename_decode_warning += " with {}:".format(default_encoding)
 
 usage_message = '''Usage: %prog [OPTIONS] COMMAND
 
@@ -145,7 +146,8 @@ setup = GibSetup(options)
 output = run_with_option_or_abort("git")
 m = re.search('^git version (.*)$',output)
 if not m:
-    print("The git version string ('{}') was of an unknown format".format(output),file=sys.stderr)
+    message = "The git version string ('{}') was of an unknown format"
+    print_stderr(message.format(output))
     sys.exit(Errors.VERSION_ERROR)
 git_version = m.group(1).strip()
 
@@ -157,15 +159,17 @@ def int_or_still_string(s):
 
 # FIXME: In fact, this doesn't work for versions like "1.6.6.197.gee6f"
 
-git_version_split = [ int_or_still_string(x) for x in git_version.split('.') ]
+git_version_split = [int_or_still_string(x) for x in git_version.split('.')]
 
-required_git_version = [ 1, 7, 0, 3 ]
-required_git_version_string = ".".join([ str(x) for x in required_git_version ])
-required_git_version_reason = """(Earlier versions have not been tested, but may work.)"""
+required_git_version = [1, 7, 0, 3]
+required_git_version_string = ".".join([str(x) for x in required_git_version])
+required_git_version_reason = \
+    '(Earlier versions have not been tested, but may work.)'
 
 if not git_version_split >= required_git_version:
-    print("Your git version is {}, version {} is required:".format(git_version,required_git_version_string),file=sys.stderr)
-    print(required_git_version_reason,file=sys.stderr)
+    message = "Your git version is {}, version {} is required:"
+    print_stderr(message.format(git_version,required_git_version_string))
+    print_stderr(required_git_version_reason)
     sys.exit(Errors.VERSION_ERROR)
 
 # Check that the necessary helper programs are also on the user's path:
@@ -181,7 +185,7 @@ old_umask = os.umask(0o077)
 
 if len(args) < 1:
     parser.print_help()
-    print("No command found",file=sys.stderr)
+    print_stderr("No command found")
     sys.exit(Errors.USAGE_ERROR)
 
 command = args[0]
@@ -220,7 +224,9 @@ def init():
     # If it does exist, then something is wrong:
 
     if setup.check_ref("HEAD"):
-        print("You're using init and the specified branch ({}) seems to already exist.".format(setup.get_branch()),file=sys.stderr)
+        message = "You're using init and the specified branch ({}) seems"
+        message += " to already exist."
+        print_stderr(message.format(setup.get_branch()))
         sys.exit(Errors.BRANCH_EXISTS_ON_INIT)
 
     # Now empty the index:
@@ -249,7 +255,9 @@ def init():
         configuration.write(cffp)
 
     check_call(setup.git(["add","-f",".gitignore",setup.configuration_file]))
-    check_call(setup.git(["commit","-q","-a","-mInitialized by "+setup.get_invocation()]))
+    check_call(setup.git(
+        ["commit", "-q", "-a", "-mInitialized by " + setup.get_invocation()
+     ]))
 
     suggestion = '''You might be interested in tweaking the file:
 
@@ -257,8 +265,12 @@ def init():
 
 Please run "{} commit" to save a first state in your history'''
 
-    print(suggestion.format(os.path.join(setup.get_directory_to_backup(),'.gitignore'),
-                            setup.get_invocation()))
+    print(
+        suggestion.format(
+            os.path.join(setup.get_directory_to_backup(),'.gitignore'),
+            setup.get_invocation()
+        )
+    )
 
 if command == "init":
     init()
@@ -266,8 +278,9 @@ if command == "init":
 
 def abort_unless_HEAD_exists():
     if not setup.check_ref("HEAD"):
-        print("The branch you are trying to back up to does not exist.",file=sys.stderr)
-        print("(Perhaps you haven't run \"{} init\")".format(setup.get_invocation()),file=sys.stderr)
+        message = "The branch you are trying to back up to does not exist.\n"
+        message += "(Perhaps you haven't run \"{} init\")"
+        print_stderr(message.format(setup.get_invocation()))
         sys.exit(Errors.NO_SUCH_BRANCH)
 
 # All the other commands require the repository to be initialized and
@@ -291,15 +304,36 @@ def handle_git_repositories(start_path=setup.get_directory_to_backup()):
     is recorded as a submodule.'''
     setup.abort_if_not_initialized()
     check_call(["rm","-f",".gitmodules"])
-    base_directory = os.path.join(os.path.join(setup.get_git_directory(),"git-repositories",setup.get_branch()))
+    base_directory = os.path.join(
+        setup.get_git_directory(),
+        "git-repositories",
+        setup.get_branch()
+    )
     mkdir_p(base_directory)
     for r in staged_submodules_iterator():
         r_dot_git = ensure_trailing_slash(os.path.join(r,".git"))
         relative_repository = re.sub('^/*','',r_dot_git)
-        destination_repository = os.path.join(base_directory,relative_repository)
+        destination_repository = os.path.join(
+            base_directory,
+            relative_repository
+        )
         mkdir_p(os.path.split(destination_repository)[0])
-        print("rsyncing: {} ({}) => {}".format(r,r_dot_git,destination_repository),file=sys.stderr)
-        check_call(["rsync","-rltD","--delete-after","--delay-updates",r_dot_git,destination_repository])
+        message = "rsyncing: {} ({}) => {}"
+        print_stderr(
+            message.format(
+                r,
+                r_dot_git,
+                destination_repository
+            )
+        )
+        check_call([
+            "rsync",
+            "-rltD",
+            "--delete-after",
+            "--delay-updates",
+            r_dot_git,
+            destination_repository
+        ])
         fp = open(".gitmodules","a")
         fp.write('''[submodule "%s"]
     path = %s
@@ -312,52 +346,72 @@ def handle_git_repositories(start_path=setup.get_directory_to_backup()):
 
 def modified_or_untracked():
     '''Return all modified or untracked files.'''
-    p = Popen(setup.git(["ls-files","-z","--modified","--others","--exclude-standard"]),stdout=PIPE)
+    p = Popen(
+        setup.git(
+            ["ls-files","-z","--modified","--others","--exclude-standard"]
+        ),
+        stdout=PIPE
+    )
     c = p.communicate()
     if p.returncode != 0:
-        print("Finding the modified files failed",file=sys.stderr)
+        print_stderr("Finding the modified files failed")
         sys.exit(Errors.GIT_COMMAND_FAILED)
     return [ x for x in c[0].decode().split('\0') if len(x) > 0 ]
 
 def commit():
     setup.abort_if_not_initialized()
 
-    print("Looking for git repositories that disappeared",file=sys.stderr)
+    print_stderr("Looking for git repositories that disappeared")
     unstage_disappeared_submodules()
 
-    print("Adding new and modified files.",file=sys.stderr)
+    print_stderr("Adding new and modified files.")
 
     if 0 != call( setup.git( [ "add", "-v", "--ignore-errors", "." ] ) ):
-        print("Warning: adding some files failed; check the output from git status below",file=sys.stderr)
+        message = "Warning: adding some files failed; check the output from"
+        message += " git status below"
+        print_stderr(message)
 
-    print("Removing deleted files from the repository",file=sys.stderr)
-    check_call("{} ls-files --deleted -z | xargs -0 -r {} rm --cached --ignore-unmatch".format(
+    print_stderr("Removing deleted files from the repository")
+    command_string = "{} ls-files --deleted -z | "
+    command_string += "xargs -0 -r {} rm --cached --ignore-unmatch"
+    check_call(
+        command_string.format(
             setup.git_for_shell(),
-            setup.git_for_shell()),
-               shell=True)
+            setup.git_for_shell()
+        ),
+        shell=True
+    )
 
-    print("Using rsync to back up git repositories (not working trees)",file=sys.stderr)
+    message = "Using rsync to back up git repositories (not working trees)"
+    print_stderr(message)
     handle_git_repositories()
 
     # Previously we had a pre-commit hook that did this - now do it by
     # hand, since we need a different hook for each directory to back up:
-    print("Record the permissions with ometastore",file=sys.stderr)
+    print_stderr("Record the permissions with ometastore")
     check_call(["ometastore","-x","-s","-i","--sort"])
     check_call(setup.git(["add","-f",".ometastore"]))
 
-    print("Committing the new state of "+setup.get_directory_to_backup(),file=sys.stderr)
-    check_call( setup.git( [ "commit",
-                       "-m",
-                       "Committed on "+current_date_and_time_string() ] ))
+    print_stderr(
+        "Committing the new state of " + setup.get_directory_to_backup()
+    )
+    check_call(setup.git([
+        "commit",
+        "-m",
+        "Committed on "+current_date_and_time_string()
+    ]))
 
 def eat(files_to_eat):
     '''This method makes sure that the files listed in 'files_to_eat'
     all have their current versions backed-up and then removes them
     both from the directory to back-up and the repository'''
     if 0 != call(setup.git(["diff","--quiet","--cached"])):
-        print("It looks as if you have some changes staged, and the \"eat\"",file=sys.stderr)
-        print("command requires you to have nothing staged.",file=sys.stderr)
-        print("(To see what's staged, try: \"{} diff --cached --stat\")".format(setup.git_for_shell()),file=sys.stderr)
+        print_stderr(
+            "It looks as if you have some changes staged, and the \"eat\"",
+        )
+        print_stderr("command requires you to have nothing staged.")
+        message = "(To see what's staged, try: \"{} diff --cached --stat\")"
+        print_stderr(message.format(setup.git_for_shell()))
         sys.exit(Errors.EATING_WITH_STAGED_CHANGES)
     check_call(setup.git(["add","-v","--"]+files_to_eat))
     # It's possible that the files we want to eat were already in the
@@ -365,17 +419,19 @@ def eat(files_to_eat):
     # to the index created any difference between the index and HEAD
     # in those files.  Only if it did, create a new commit:
     if 0 != call(setup.git(["diff","--quiet","--cached","--"]+files_to_eat)):
-        commit_message = "Eating specified files on "+current_date_and_time_string()
+        commit_message = "Eating specified files on "
+        commit_message += current_date_and_time_string()
         check_call(setup.git(["commit","-m",commit_message]))
     check_call(setup.git(["rm","-rf","--"]+files_to_eat))
     # The "git rm -rf" may leave empty directories, since git only
     # tracks files, so use "rm -rf" as well:
     check_call(["rm","-rfv","--"]+files_to_eat)
-    commit_message = "Now removing eaten files on "+current_date_and_time_string()
+    commit_message = "Now removing eaten files on "
+    commit_message += current_date_and_time_string()
     check_call(setup.git(["commit","-m",commit_message]))
 
 def show(filename,ref=None):
-    '''Output the contents of filename (the version in 'ref') to standard output.'''
+    '''Output the contents of file (the version in 'ref') to standard output.'''
     if not ref:
         ref = "HEAD"
     check_call(setup.git(["show",ref+":"+filename]))
@@ -394,16 +450,19 @@ def extract(path,destination_directory,ref=None):
         ref = "HEAD"
     tree = ref+":"+path
     if not setup.check_ref(ref):
-        print("The commit '{}' could not be found".format(ref),file=sys.stderr)
+        print_stderr("The commit '{}' could not be found".format(ref))
         sys.exit(Errors.NO_SUCH_BRANCH)
     if not setup.check_tree(tree):
-        print("The path {} in the repository was not a tree (directory)".format(path),file=sys.stderr)
+        message = "The path {} in the repository was not a tree (directory)"
+        print_stderr(message.format(path))
         sys.exit(Errors.BAD_TREE)
     if not os.path.exists(destination_directory):
-        print("The destination directory ({}) does not exist".format(destination_directory,),file=sys.stderr)
+        message = "The destination directory ({}) does not exist"
+        print_stderr(message.format(destination_directory))
         sys.exit(Errors.USAGE_ERROR)
     if not os.path.isdir(destination_directory):
-        print("The destination directory ({}) didn't seem to be a directory".format(destination_directory,),file=sys.stderr)
+        message = "The destination directory ({}) didn't seem to be a directory"
+        print_stderr(message.format(destination_directory))
         sys.exit(Errors.USAGE_ERROR)
     # In order to apply the permissions with ometastore, make sure that we
     # extract that file first:
@@ -414,15 +473,20 @@ def extract(path,destination_directory,ref=None):
     extract_directory = os.path.join(destination_directory,path)
     mkdir_p(extract_directory)
     # Now extract the files:
-    check_call("{} archive {} | tar -C {} -x".format(setup.git_for_shell(),
-                                                     shellquote(tree),
-                                                     shellquote(extract_directory)),
-               shell=True)
+    check_call(
+        "{} archive {} | tar -C {} -x".format(
+            setup.git_for_shell(),
+            shellquote(tree),
+            shellquote(extract_directory)
+        ),
+        shell=True
+    )
     # Now apply the permissions from ometastore.
     # FIXME: at the moment ometastore can't apply permissions to a
     # partial tree, so comment this out for the moment:
     if False:
-        check_call("cd {} && ometastore -v -x -a -i".format(shellquote(destination_directory)),
+        command_format = "cd {} && ometastore -v -x -a -i"
+        check_call(command_format.format(shellquote(destination_directory)),
                    shell=True)
 
 def committed_submodules_iterator(ref='HEAD'):
@@ -433,8 +497,7 @@ def committed_submodules_iterator(ref='HEAD'):
         try:
             rs = r.decode()
         except:
-            print(filename_decode_warning+"\n  "+str(r),
-                  file=sys.stderr)
+            print_stderr(filename_decode_warning+"\n  "+str(r))
             continue
         m = compiled_re.match(rs)
         if m:
@@ -448,8 +511,7 @@ def staged_submodules_iterator():
         try:
             rs = r.decode()
         except:
-            print(filename_decode_warning+"\n  "+str(r),
-                  file=sys.stderr)
+            print_stderr(filename_decode_warning+"\n  "+str(r))
             continue
         m = compiled_re.match(rs)
         if m:
@@ -464,7 +526,7 @@ def unstage_disappeared_submodules():
             # happened, also unstage this:
             if not is_in_another_git_repository(s):
                 continue
-        print("Unstaging the submodule: {}".format(s),file=sys.stderr)
+        print_stderr("Unstaging the submodule: {}".format(s))
         check_call(setup.git(["rm","--cached","--ignore-unmatch",s]))
         config_section = "submodule.{}".format(s)
         call(setup.git(["config","--remove-section",config_section]))
@@ -501,38 +563,45 @@ def update_file_list():
 
 if command == "commit":
     commit()
-    print("After committing the new backup, git status is:",file=sys.stderr)
+    print_stderr("After committing the new backup, git status is:")
     print(Popen(setup.git(["status"]),stdout=PIPE).communicate()[0].decode())
-    print(
+    print_stderr(
         "Creating lists of files in backup in:",
-        setup.get_file_list_directory(),
-        file=sys.stderr
+        setup.get_file_list_directory()
     )
     update_file_list()
 elif command == "eat":
     if len(args) > 1:
-        rewritten_paths = [ map_filename_for_directory_change(x,
-                                                              original_current_directory,
-                                                              setup.get_directory_to_backup())
-                            for x in args[1:] ]
+        rewritten_paths = [
+            map_filename_for_directory_change(
+                x,
+                original_current_directory,
+                setup.get_directory_to_backup()
+            )
+            for x in args[1:]
+        ]
         eat(rewritten_paths)
     else:
-        print("You must supply at least one file or directory to the \"eat\" command",file=sys.stderr)
+        message = "You must supply at least one file or directory to "
+        message += "the \"eat\" command"
+        print_stderr(message)
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
 elif command == "show":
     if len(args) == 1:
-        print("You must supply a filename to the \"show\" command",file=sys.stderr)
+        print_stderr("You must supply a filename to the \"show\" command")
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     elif len(args) > 3:
-        print("Too many arguments provided for the \"show\" command",file=sys.stderr)
+        print_stderr("Too many arguments provided for the \"show\" command")
         parser.print_help()
         sys.exit(Errors.USAGE_ERROR)
     else:
-        rewritten_path = map_filename_for_directory_change(args[1],
-                                                           original_current_directory,
-                                                           setup.get_directory_to_backup())
+        rewritten_path = map_filename_for_directory_change(
+            args[1],
+            original_current_directory,
+            setup.get_directory_to_backup()
+        )
         ref = None
         if len(args) == 3:
             ref = args[2]
@@ -554,18 +623,25 @@ elif command == "restore":
     if len(args) == 2:
         ref = args[1]
     confirmation_text = "Yes, I understand."
-    print("\nThis will restore the backup to the directory: "+setup.get_directory_to_backup())
-    print("... which would wipe out any changes in that directory and restore")
-    print("it to the state of '{}' from repository {}".format(ref,setup.get_git_directory()))
-    print("If you understand and want to continue, please type: \"{}\"".format(confirmation_text,))
+    warning_message = '''This will restore the backup to the directory:
+  {dir}
+... which would wipe out any changes in that directory and restore
+it to the state of '{ref}' from repository {repo}
+If you understand and want to continue, please type: \"{conf}\"'''
+    print(warning_message.format(
+        dir=setup.get_directory_to_backup(),
+        ref=ref,
+        repo=setup.get_git_directory(),
+        conf=confirmation_text
+    ))
     user_input = input()
     if(user_input == confirmation_text):
         restore(ref)
     else:
-        print("'restore' cancelled.",file=sys.stderr)
+        print_stderr("'restore' cancelled.")
 elif command == "git":
     call(setup.git(args[1:]))
 elif command == "update-file-list":
     update_file_list()
 else:
-    print("Unknown command '{}'".format(command),file=sys.stderr)
+    print_stderr("Unknown command '{}'".format(command))

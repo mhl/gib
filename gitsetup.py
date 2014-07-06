@@ -6,7 +6,7 @@ import sys
 
 from errors import Errors
 from general import (
-    exists_and_is_directory, shellquote
+    exists_and_is_directory, shellquote, print_stderr
 )
 from githelpers import has_objects_and_refs
 
@@ -40,7 +40,7 @@ class GibSetup:
         else:
             if 'HOME' not in os.environ:
                 # Then we can't use HOME as default directory:
-                print("The HOME environment variable was not set",file=sys.stderr)
+                print_stderr("The HOME environment variable was not set")
                 sys.exit(Errors.STRANGE_ENVIRONMENT)
             self.directory_to_backup = os.environ['HOME']
             self.directory_to_backup_from = OptionFrom.DEFAULT_VALUE
@@ -73,7 +73,7 @@ class GibSetup:
             self.git_directory_from = OptionFrom.DEFAULT_VALUE
 
         if not os.path.isabs(self.git_directory):
-            print("The git directory must be an absolute path.",file=sys.stderr)
+            print_stderr("The git directory must be an absolute path.")
             sys.exit(Errors.GIT_DIRECTORY_RELATIVE)
 
         # And finally the branch:
@@ -91,13 +91,13 @@ class GibSetup:
         # Check that the git_directory ends in '.git':
 
         if not re.search('\.git/*$',self.git_directory):
-            print("The git directory ({}) did not end in '.git'".format(self.git_directory),file=sys.stderr)
+            print_stderr("The git directory ({}) did not end in '.git'".format(self.git_directory))
             sys.exit(Errors.BAD_GIT_DIRECTORY)
 
         # Also check that it actually exists:
 
         if not os.path.exists(self.git_directory):
-            print("The git directory '{}' does not exist.".format(self.git_directory),file=sys.stderr)
+            print_stderr("The git directory '{}' does not exist.".format(self.git_directory))
             sys.exit(Errors.GIT_DIRECTORY_MISSING)
 
     def get_directory_to_backup(self):
@@ -116,7 +116,7 @@ class GibSetup:
         return self.branch
 
     def print_settings(self):
-        print('''Settings for backup:
+        print_stderr('''Settings for backup:
 backing up the directory {} (set from the {})
 ... to the branch "{}" (set from the {})
 ... in the git repository {} (set from the {})'''.format(
@@ -126,7 +126,7 @@ backing up the directory {} (set from the {})
                 OptionFrom.string_versions[self.branch_from],
                 self.git_directory,
                 OptionFrom.string_versions[self.git_directory_from]),
-              file=sys.stderr)
+        )
 
     def get_invocation(self):
         '''Return an invocation that would run the script with options
@@ -162,8 +162,8 @@ backing up the directory {} (set from the {})
     def abort_if_not_initialized(self):
         '''Check that the git repository exists and exit otherwise'''
         if not self.git_initialized():
-            print("You don't seem to have initialized {} for backup.".format(self.directory_to_backup),file=sys.stderr)
-            print("Please use '{} init' to initialize it".format(self.get_invocation()),file=sys.stderr)
+            print_stderr("You don't seem to have initialized {} for backup.".format(self.directory_to_backup))
+            print_stderr("Please use '{} init' to initialize it".format(self.get_invocation()))
             sys.exit(Errors.REPOSITORY_NOT_INITIALIZED)
 
     def check_ref(self,ref):
@@ -188,7 +188,7 @@ backing up the directory {} (set from the {})
         p = Popen(self.git(["symbolic-ref","HEAD"]),stdout=PIPE)
         c = p.communicate()
         if 0 != p.returncode:
-            print("Finding what HEAD points to failed",file=sys.stderr)
+            print_stderr("Finding what HEAD points to failed")
             sys.exit(Errors.FINDING_HEAD)
         result = c[0].decode().strip()
         if self.branch == result:
@@ -204,7 +204,7 @@ backing up the directory {} (set from the {})
         # Also reset the index to match HEAD.  Otherwise things go
         # horribly wrong when switching from backing up one computer to
         # another, since the index is still that from the first one.
-        print("Now working on a new branch, so resetting the index to match...",file=sys.stderr)
+        print_stderr("Now working on a new branch, so resetting the index to match...")
         check_call(self.git(["read-tree","HEAD"]))
 
     def config_value(self,key):
@@ -229,10 +229,10 @@ backing up the directory {} (set from the {})
         current_value = self.config_value(key)
         if current_value:
             if current_value != required_value:
-                print("The current value for {} is {}, should be: {}".format(key,current_value,required_value),file=sys.stderr)
+                print_stderr("The current value for {} is {}, should be: {}".format(key,current_value,required_value))
                 sys.exit(Errors.GIT_CONFIG_ERROR)
         else:
-            print("The {} config option was not set, setting to {}".format(key,required_value),file=sys.stderr)
+            print_stderr("The {} config option was not set, setting to {}".format(key,required_value))
             self.set_config_value(key,required_value)
 
     def abort_unless_no_auto_gc(self):
@@ -241,6 +241,6 @@ backing up the directory {} (set from the {})
 
     def abort_unless_HEAD_exists(self):
         if not self.check_ref("HEAD"):
-            print("The branch you are trying to back up to does not exist.",file=sys.stderr)
-            print("(Perhaps you haven't run \"{} init\")".format(self.get_invocation()),file=sys.stderr)
+            print_stderr("The branch you are trying to back up to does not exist.")
+            print_stderr("(Perhaps you haven't run \"{} init\")".format(self.get_invocation()))
             sys.exit(Errors.NO_SUCH_BRANCH)
